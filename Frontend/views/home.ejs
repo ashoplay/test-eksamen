@@ -1,0 +1,17 @@
+<form action="/items/search" method="GET">
+    <input type="text" name="q" placeholder="Search..." />
+    <button type="submit">Search</button>
+  </form>
+  
+  <ul>
+    <% items.forEach(item => { %>
+      <li>
+        <h2><%= item.name %></h2>
+        <p><%= item.description %></p>
+        <% if (item.image) { %>
+          <img src="/uploads/<%= item.image %>" width="100" />
+        <% } %>
+      </li>
+    <% }) %>
+  </ul>
+  
