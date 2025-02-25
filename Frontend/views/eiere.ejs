@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Søk etter Eiere - Kukkik Ano</title>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <header class="header">
+    <div class="container">
+      <nav class="navbar">
+        <div class="logo">Kukkik Ano</div>
+        <ul class="nav-links" id="authLinks">
+          <li><a href="/">Hjem</a></li>
+          <li><a href="/login">Logg inn</a></li>
+          <li><a href="/register">Registrer</a></li>
+          <li><a href="/eiere">Eiere</a></li>
+          <li><a href="/faq">FAQ</a></li>
+          <li><a href="/kart">Kart</a></li>
+          <li><a href="/databaseinfo">Database info</a></li>
+        </ul>
+        <ul class="nav-links" id="userLinks" style="display: none;">
+          <li><a href="/">Hjem</a></li>
+          <li><a href="/reinsdyr">Mine reinsdyr</a></li>
+          <li><a href="/flokk">Mine flokker</a></li>
+          <li><a href="/eiere">Eiere</a></li>
+          <li><a href="/faq">FAQ</a></li>
+          <li><a href="/kart">Kart</a></li>
+          <li><a href="/databaseinfo">Database info</a></li>
+          <li><span id="username"></span></li>
+          <li><a href="#" id="logoutBtn">Logg ut</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+  
+  <main class="main">
+    <div class="container">
+      <h1 class="page-title">Søk etter reinsdyreiere</h1>
+      
+      <section class="search-container">
+        <h2>Søk etter eiere</h2>
+        <form id="eierSearchForm" class="search-form">
+          <input type="text" id="eierSearchInput" class="search-input" placeholder="Søk etter navn, e-post, eller telefonnummer...">
+          <button type="submit" class="search-btn">Søk</button>
+        </form>
+      </section>
+      
+      <section id="eierResultsContainer" class="results-container">
+        <!-- Search results will be displayed here -->
+      </section>
+    </div>
+  </main>
+  
+  <footer class="footer">
+    <div class="container">
+      <p>&copy; 2025 Kukkik Ano - Reinsdyrdatabase</p>
+    </div>
+  </footer>
+  
+  <script src="/js/scripts.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Setup owner search functionality
+      const eierSearchForm = document.getElementById('eierSearchForm');
+      const eierResultsContainer = document.getElementById('eierResultsContainer');
+      
+      if (eierSearchForm && eierResultsContainer) {
+        eierSearchForm.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          
+          const searchInput = document.getElementById('eierSearchInput');
+          const searchTerm = searchInput.value.trim();
+          
+          if (!searchTerm) {
+            return;
+          }
+          
+          try {
+            const response = await fetch(`/api/eier/search?q=${encodeURIComponent(searchTerm)}`);
+            const data = await response.json();
+            
+            displayEierResults(data);
+          } catch (error) {
+            console.error('Error:', error);
+            eierResultsContainer.innerHTML = '<p class="alert alert-danger">Det oppstod en feil under søket. Vennligst prøv igjen.</p>';
+          }
+        });
+      }
+      
+      function displayEierResults(data) {
+        if (!eierResultsContainer) {
+          return;
+        }
+        
+        if (data.length === 0) {
+          eierResultsContainer.innerHTML = '<p>Ingen resultater funnet.</p>';
+          return;
+        }
+        
+        let html = '<h2>Søkeresultater:</h2>';
+        
+        data.forEach(eier => {
+          html += `
+            <div class="result-item">
+              <h3 class="result-title"><a href="/eiere/${eier._id}">${eier.navn}</a></h3>
+              <p class="result-info"><strong>E-post:</strong> ${eier.epost}</p>
+              <p class="result-info"><strong>Telefon:</strong> ${eier.telefonnummer}</p>
+              <p class="result-info"><strong>Kontaktspråk:</strong> ${eier.kontaktsprak}</p>
+              <a href="/eiere/${eier._id}" class="btn btn-primary" style="margin-top: 10px;">Se profil</a>
+            </div>
+          `;
+        });
+        
+        eierResultsContainer.innerHTML = html;
+      }
+    });
+  </script>
+</body>
+</html>

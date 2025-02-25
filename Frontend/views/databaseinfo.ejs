@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Database Informasjon - Kukkik Ano</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+  <style>
+    .er-diagram {
+      max-width: 100%;
+      height: auto;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      margin: 20px 0;
+    }
+    
+    .model-description {
+      margin-bottom: 30px;
+    }
+    
+    .model-description h3 {
+      color: #3498db;
+      margin-bottom: 10px;
+    }
+    
+    .model-description table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    
+    .model-description table th,
+    .model-description table td {
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      text-align: left;
+    }
+    
+    .model-description table th {
+      background-color: #f8f9fa;
+    }
+    
+    .model-description table tr:nth-child(even) {
+      background-color: #f8f9fa;
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="container">
+      <nav class="navbar">
+        <div class="logo">Kukkik Ano</div>
+        <ul class="nav-links" id="authLinks">
+          <li><a href="/">Hjem</a></li>
+          <li><a href="/login">Logg inn</a></li>
+          <li><a href="/register">Registrer</a></li>
+          <li><a href="/eiere">Eiere</a></li>
+          <li><a href="/faq">FAQ</a></li>
+          <li><a href="/kart">Kart</a></li>
+          <li><a href="/databaseinfo">Database info</a></li>
+        </ul>
+        <ul class="nav-links" id="userLinks" style="display: none;">
+          <li><a href="/">Hjem</a></li>
+          <li><a href="/reinsdyr">Mine reinsdyr</a></li>
+          <li><a href="/flokk">Mine flokker</a></li>
+          <li><a href="/eiere">Eiere</a></li>
+          <li><a href="/faq">FAQ</a></li>
+          <li><a href="/kart">Kart</a></li>
+          <li><a href="/databaseinfo">Database info</a></li>
+          <li><span id="username"></span></li>
+          <li><a href="#" id="logoutBtn">Logg ut</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+  
+  <main class="main">
+    <div class="container">
+      <h1 class="page-title">Database Informasjon</h1>
+      
+      <div class="card">
+        <h2 class="card-title">ER-diagram for Reinsdyrdatabasen</h2>
+        
+        <div>
+          <div class="mermaid">
+            erDiagram
+              USER {
+                  ObjectId _id
+                  string username
+                  string password
+                  boolean isAdmin
+                  ObjectId eier
+              }
+
+              EIER {
+                  ObjectId _id
+                  string navn
+                  string uniktNummer
+                  string epost
+                  string kontaktsprak
+                  string telefonnummer
+                  ObjectId user
+              }
+
+              FLOKK {
+                  ObjectId _id
+                  string navn
+                  ObjectId eier
+                  string serieinndeling
+                  string buemerke_navn
+                  string buemerke_bilde
+                  ObjectId beiteomrade
+              }
+
+              REINSDYR {
+                  ObjectId _id
+                  string serienummer
+                  string navn
+                  ObjectId flokk
+                  date fodselsdato
+              }
+
+              BEITEOMRADE {
+                  ObjectId _id
+                  string navn
+                  string[] fylker
+              }
+
+              USER ||--|| EIER : has
+              EIER ||--o{ FLOKK : owns
+              FLOKK ||--o{ REINSDYR : contains
+              FLOKK }o--|| BEITEOMRADE : located_in
+          </div>
+        </div>
+        
+        <p>Dette ER-diagrammet viser strukturen og relasjonene i reinsdyrdatabasen. Databasen består av fem hovedmodeller: User, Eier, Flokk, Reinsdyr og Beiteområde.</p>
+        
+        <div class="model-description">
+          <h3>User</h3>
+          <p>User-modellen representerer brukere av systemet. Hver bruker er knyttet til en eier.</p>
+          <table>
+            <thead>
+              <tr>
+                <th>Felt</th>
+                <th>Type</th>
+                <th>Beskrivelse</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>_id</td>
+                <td>ObjectId</td>
+                <td>Unik identifikator for brukeren</td>
+              </tr>
+              <tr>
+                <td>username</td>
+                <td>String</td>
+                <td>Brukernavnet for innlogging</td>
+              </tr>
+              <tr>
+                <td>password</td>
+                <td>String</td>
+                <td>Hashet passord for sikker autentisering</td>
+              </tr>
+              <tr>
+                <td>isAdmin</td>
+                <td>Boolean</td>
+                <td>Angir om brukeren har administratorrettigheter</td>
+              </tr>
+              <tr>
+                <td>eier</td>
+                <td>ObjectId (ref: Eier)</td>
+                <td>Referanse til eieren brukeren er knyttet til</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        
+        <div class="model-description">
+          <h3>Eier</h3>
+          <p>Eier-modellen representerer reinsdyreiere som kan ha flere flokker.</p>
+          <table>
+            <thead>
+              <tr>
+                <th>Felt</th>
+                <th>Type</th>
+                <th>Beskrivelse</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>_id</td>
+                <td>ObjectId</td>
+                <td>Unik identifikator for eieren</td>
+              </tr>
+              <tr>
+                <td>navn</td>
+                <td>String</td>
+                <td>Eierens fulle navn</td>
+              </tr>
+              <tr>
+                <td>uniktNummer</td>
+                <td>String (UUID)</td>
+                <td>Unik identifikator for eieren i form av UUID</td>
+              </tr>
+              <tr>
+                <td>epost</td>
+                <td>String</td>
+                <td>Eierens e-postadresse</td>
+              </tr>
+              <tr>
+                <td>kontaktsprak</td>
+                <td>String (enum)</td>
+                <td>Eierens foretrukne samiske språkgruppe for kommunikasjon</td>
+              </tr>
+              <tr>
+                <td>telefonnummer</td>
+                <td>String</td>
+                <td>Eierens telefonnummer</td>
+              </tr>
+              <tr>
+                <td>user</td>
+                <td>ObjectId (ref: User)</td>
+                <td>Referanse til brukerkontoen for eieren</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        
+        <div class="model-description">
+          <h3>Flokk</h3>
+          <p>Flokk-modellen representerer en gruppe reinsdyr som tilhører en eier og er knyttet til et beiteområde.</p>
+          <table>
+            <thead>
+              <tr>
+                <th>Felt</th>
+                <th>Type</th>
+                <th>Beskrivelse</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>_id</td>
+                <td>ObjectId</td>
+                <td>Unik identifikator for flokken</td>
+              </tr>
+              <tr>
+                <td>navn</td>
+                <td>String</td>
+                <td>Flokkens navn</td>
+              </tr>
+              <tr>
+                <td>eier</td>
+                <td>ObjectId (ref: Eier)</td>
+                <td>Referanse til eieren av flokken</td>
+              </tr>
+              <tr>
+                <td>serieinndeling</td>
+                <td>String</td>
+                <td>Serieinndelingen for flokken</td>
+              </tr>
+              <tr>
+                <td>buemerke_navn</td>
+                <td>String</td>
+                <td>Navnet på flokkens buemerke</td>
+              </tr>
+              <tr>
+                <td>buemerke_bilde</td>
+                <td>String</td>
+                <td>URL eller filnavn til bilde av buemerket</td>
+              </tr>
+              <tr>
+                <td>beiteomrade</td>
+                <td>ObjectId (ref: Beiteomrade)</td>
+                <td>Referanse til flokkens primære beiteområde</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        
+        <div class="model-description">
+          <h3>Reinsdyr</h3>
+          <p>Reinsdyr-modellen representerer individuelle reinsdyr i en flokk.</p>
+          <table>
+            <thead>
+              <tr>
+                <th>Felt</th>
+                <th>Type</th>
+                <th>Beskrivelse</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>_id</td>
+                <td>ObjectId</td>
+                <td>Unik identifikator for reinsdyret</td>
+              </tr>
+              <tr>
+                <td>serienummer</td>
+                <td>String</td>
+                <td>Unikt serienummer for reinsdyret</td>
+              </tr>
+              <tr>
+                <td>navn</td>
+                <td>String</td>
+                <td>Reinsdyrets navn</td>
+              </tr>
+              <tr>
+                <td>flokk</td>
+                <td>ObjectId (ref: Flokk)</td>
+                <td>Referanse til flokken reinsdyret tilhører</td>
+              </tr>
+              <tr>
+                <td>fodselsdato</td>
+                <td>Date</td>
+                <td>Reinsdyrets fødselsdato</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        
+        <div class="model-description">
+          <h3>Beiteområde</h3>
+          <p>Beiteområde-modellen representerer geografiske områder der reinsdyrflokker beiter.</p>
+          <table>
+            <thead>
+              <tr>
+                <th>Felt</th>
+                <th>Type</th>
+                <th>Beskrivelse</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>_id</td>
+                <td>ObjectId</td>
+                <td>Unik identifikator for beiteområdet</td>
+              </tr>
+              <tr>
+                <td>navn</td>
+                <td>String (enum)</td>
+                <td>Beiteområdets navn basert på samiske språkområder</td>
+              </tr>
+              <tr>
+                <td>fylker</td>
+                <td>Array of String</td>
+                <td>Fylkene beiteområdet dekker</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
+      <div class="card" style="margin-top: 20px;">
+        <h2 class="card-title">Systemarkitektur</h2>
+        <p>Systemet er bygget med følgende teknologier:</p>
+        <ul>
+          <li><strong>Backend:</strong> Node.js med Express.js som webserver</li>
+          <li><strong>Database:</strong> MongoDB (NoSQL database)</li>
+          <li><strong>Frontend:</strong> EJS templates, JavaScript, CSS</li>
+          <li><strong>Autentisering:</strong> JWT (JSON Web Tokens)</li>
+          <li><strong>Sikkerhet:</strong> bcrypt for passordkryptering, HTTP-only cookies</li>
+        </ul>
+        
+        <p>Systemet følger MVC-arkitekturen (Model-View-Controller):</p>
+        <ul>
+          <li><strong>Model:</strong> MongoDB-modeller for datastrukturer (User, Eier, Flokk, Reinsdyr, Beiteområde)</li>
+          <li><strong>View:</strong> EJS-templates for rendering av HTML</li>
+          <li><strong>Controller:</strong> Express-controllere som håndterer forretningslogikk</li>
+        </ul>
+        
+        <p>For mer informasjon om prosjektet, se vår <a href="https://github.com/ashoplay/test-eksamen" target="_blank">GitHub-side</a>.</p>
+      </div>
+    </div>
+  </main>
+  
+  <footer class="footer">
+    <div class="container">
+      <p>&copy; 2025 Kukkik Ano - Reinsdyrdatabase</p>
+    </div>
+  </footer>
+  
+  <script src="/js/scripts.js"></script>
+  <script>
+    // Initialize Mermaid
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'default',
+      securityLevel: 'loose',
+      er: {
+        diagramPadding: 20
+      }
+    });
+  </script>
+</body>
+</html>

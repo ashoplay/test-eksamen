@@ -1,6 +1,63 @@
-<form action="/auth/login" method="POST">
-    <input type="email" name="email" placeholder="Email" required />
-    <input type="password" name="password" placeholder="Password" required />
-    <button type="submit">Login</button>
-  </form>
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Logg inn - Kukkik Ano</title>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <header class="header">
+    <div class="container">
+      <nav class="navbar">
+        <div class="logo">Kukkik Ano</div>
+        <ul class="nav-links">
+          <li><a href="/">Hjem</a></li>
+          <li><a href="/login">Logg inn</a></li>
+          <li><a href="/register">Registrer</a></li>
+          <li><a href="/eiere">Eiere</a></li>
+          <li><a href="/faq">FAQ</a></li>
+          <li><a href="/kart">Kart</a></li>
+          <li><a href="/databaseinfo">Database info</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
   
+  <main class="main">
+    <div class="container">
+      <div class="card" style="max-width: 500px; margin: 0 auto;">
+        <h1 class="card-title">Logg inn</h1>
+        
+        <div id="message"></div>
+        
+        <form id="loginForm">
+          <div class="form-group">
+            <label for="username" class="form-label">Brukernavn</label>
+            <input type="text" id="username" class="form-input" required>
+          </div>
+          
+          <div class="form-group">
+            <label for="password" class="form-label">Passord</label>
+            <input type="password" id="password" class="form-input" required>
+          </div>
+          
+          <div class="form-group">
+            <button type="submit" class="btn btn-primary">Logg inn</button>
+          </div>
+        </form>
+        
+        <p style="margin-top: 1rem;">Har du ikke en konto? <a href="/register">Registrer deg her</a></p>
+      </div>
+    </div>
+  </main>
+  
+  <footer class="footer">
+    <div class="container">
+      <p>&copy; 2025 Kukkik Ano - Reinsdyrdatabase</p>
+    </div>
+  </footer>
+  
+  <script src="/js/scripts.js"></script>
+</body>
+</html>

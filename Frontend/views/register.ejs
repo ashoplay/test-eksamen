@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Registrer - Kukkik Ano</title>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <header class="header">
+    <div class="container">
+      <nav class="navbar">
+        <div class="logo">Kukkik Ano</div>
+        <ul class="nav-links">
+          <li><a href="/">Hjem</a></li>
+          <li><a href="/login">Logg inn</a></li>
+          <li><a href="/register">Registrer</a></li>
+          <li><a href="/eiere">Eiere</a></li>
+          <li><a href="/faq">FAQ</a></li>
+          <li><a href="/kart">Kart</a></li>
+          <li><a href="/databaseinfo">Database info</a></li>
+        </ul><a href="/login">Logg inn</a></li>
+          <li><a href="/register">Registrer</a></li>
+          <li><a href="/faq">FAQ</a></li>
+          <li><a href="/kart">Kart</a></li>
+          <li><a href="/databaseinfo">Database info</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+  
+  <main class="main">
+    <div class="container">
+      <div class="card" style="max-width: 600px; margin: 0 auto;">
+        <h1 class="card-title">Registrer ny bruker</h1>
+        
+        <div id="message"></div>
+        
+        <form id="registerForm">
+          <div class="form-group">
+            <label for="username" class="form-label">Brukernavn</label>
+            <input type="text" id="username" class="form-input" required>
+          </div>
+          
+          <div class="form-group">
+            <label for="password" class="form-label">Passord</label>
+            <input type="password" id="password" class="form-input" required>
+          </div>
+          
+          <div class="form-group">
+            <label for="navn" class="form-label">Navn</label>
+            <input type="text" id="navn" class="form-input" required>
+          </div>
+          
+          <div class="form-group">
+            <label for="epost" class="form-label">E-post</label>
+            <input type="email" id="epost" class="form-input" required>
+          </div>
+          
+          <div class="form-group">
+            <label for="telefonnummer" class="form-label">Telefonnummer</label>
+            <input type="tel" id="telefonnummer" class="form-input" required>
+          </div>
+          
+          <div class="form-group">
+            <label for="kontaktsprak" class="form-label">Kontaktspråk</label>
+            <select id="kontaktsprak" class="form-select" required>
+              <option value="">Velg språk</option>
+              <option value="Nordsamisk">Nordsamisk</option>
+              <option value="Sørsamisk">Sørsamisk</option>
+              <option value="Lulesamisk">Lulesamisk</option>
+              <option value="Pitesamisk">Pitesamisk</option>
+              <option value="Umesamisk">Umesamisk</option>
+              <option value="Skoltesamisk">Skoltesamisk</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <button type="submit" class="btn btn-primary">Registrer</button>
+          </div>
+        </form>
+        
+        <p style="margin-top: 1rem;">Har du allerede en konto? <a href="/login">Logg inn her</a></p>
+      </div>
+    </div>
+  </main>
+  
+  <footer class="footer">
+    <div class="container">
+      <p>&copy; 2025 Kukkik Ano - Reinsdyrdatabase</p>
+    </div>
+  </footer>
+  
+  <script src="/js/scripts.js"></script>
+</body>
+</html>

@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Eier Profil - Kukkik Ano</title>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <header class="header">
+    <div class="container">
+      <nav class="navbar">
+        <div class="logo">Kukkik Ano</div>
+        <ul class="nav-links" id="authLinks">
+          <li><a href="/">Hjem</a></li>
+          <li><a href="/login">Logg inn</a></li>
+          <li><a href="/register">Registrer</a></li>
+          <li><a href="/eiere">Eiere</a></li>
+          <li><a href="/faq">FAQ</a></li>
+          <li><a href="/kart">Kart</a></li>
+          <li><a href="/databaseinfo">Database info</a></li>
+        </ul>
+        <ul class="nav-links" id="userLinks" style="display: none;">
+          <li><a href="/">Hjem</a></li>
+          <li><a href="/reinsdyr">Mine reinsdyr</a></li>
+          <li><a href="/flokk">Mine flokker</a></li>
+          <li><a href="/eiere">Eiere</a></li>
+          <li><a href="/faq">FAQ</a></li>
+          <li><a href="/kart">Kart</a></li>
+          <li><a href="/databaseinfo">Database info</a></li>
+          <li><span id="username"></span></li>
+          <li><a href="#" id="logoutBtn">Logg ut</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+  
+  <main class="main">
+    <div class="container">
+      <div id="eierInfo" class="card">
+        <div id="eierLoading">Laster eierinformasjon...</div>
+      </div>
+      
+      <h2 class="section-title">Flokker</h2>
+      <div id="eierFlokker">
+        <div id="flokkLoading">Laster flokker...</div>
+      </div>
+      
+      <h2 class="section-title">Reinsdyr</h2>
+      <div id="eierReinsdyr">
+        <div id="reinsdyrLoading">Laster reinsdyr...</div>
+      </div>
+    </div>
+  </main>
+  
+  <footer class="footer">
+    <div class="container">
+      <p>&copy; 2025 Kukkik Ano - Reinsdyrdatabase</p>
+    </div>
+  </footer>
+  
+  <script src="/js/scripts.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const eierId = window.location.pathname.split('/').pop();
+      
+      // Load eier info
+      loadEierInfo(eierId);
+      
+      // Load eier's flokker
+      loadEierFlokker(eierId);
+      
+      // Load eier's reinsdyr
+      loadEierReinsdyr(eierId);
+    });
+    
+    async function loadEierInfo(eierId) {
+      const eierInfoElement = document.getElementById('eierInfo');
+      
+      try {
+        const response = await fetch(`/api/eier/${eierId}`);
+        
+        if (!response.ok) {
+          throw new Error('Kunne ikke laste eierinformasjon');
+        }
+        
+        const eier = await response.json();
+        
+        eierInfoElement.innerHTML = `
+          <h1 class="card-title">${eier.navn}</h1>
+          <p><strong>E-post:</strong> ${eier.epost}</p>
+          <p><strong>Telefon:</strong> ${eier.telefonnummer}</p>
+          <p><strong>Kontaktspråk:</strong> ${eier.kontaktsprak}</p>
+        `;
+      } catch (error) {
+        console.error('Error:', error);
+        eierInfoElement.innerHTML = '<p class="alert alert-danger">Kunne ikke laste eierinformasjon.</p>';
+      }
+    }
+    
+    async function loadEierFlokker(eierId) {
+      const eierFlokkerElement = document.getElementById('eierFlokker');
+      
+      try {
+        const response = await fetch(`/api/flokk?eier=${eierId}`);
+        
+        if (!response.ok) {
+          throw new Error('Kunne ikke laste flokker');
+        }
+        
+        const flokker = await response.json();
+        
+        if (flokker.length === 0) {
+          eierFlokkerElement.innerHTML = '<p>Ingen flokker funnet for denne eieren.</p>';
+          return;
+        }
+        
+        let html = '';
+        
+        flokker.forEach(flokk => {
+          html += `
+            <div class="card">
+              <h3 class="card-title">${flokk.navn}</h3>
+              <p><strong>Serieinndeling:</strong> ${flokk.serieinndeling}</p>
+              <p><strong>Buemerke:</strong> ${flokk.buemerke_navn}</p>
+              <p><strong>Beiteområde:</strong> ${flokk.beiteomrade ? flokk.beiteomrade.navn : 'Ukjent'}</p>
+            </div>
+          `;
+        });
+        
+        eierFlokkerElement.innerHTML = html;
+      } catch (error) {
+        console.error('Error:', error);
+        eierFlokkerElement.innerHTML = '<p class="alert alert-danger">Kunne ikke laste flokker for denne eieren.</p>';
+      }
+    }
+    
+    async function loadEierReinsdyr(eierId) {
+      const eierReinsdyrElement = document.getElementById('eierReinsdyr');
+      
+      try {
+        const response = await fetch(`/api/reinsdyr?eier=${eierId}`);
+        
+        if (!response.ok) {
+          throw new Error('Kunne ikke laste reinsdyr');
+        }
+        
+        const reinsdyr = await response.json();
+        
+        if (reinsdyr.length === 0) {
+          eierReinsdyrElement.innerHTML = '<p>Ingen reinsdyr funnet for denne eieren.</p>';
+          return;
+        }
+        
+        let html = '';
+        
+        reinsdyr.forEach(r => {
+          html += `
+            <div class="card">
+              <h3 class="card-title">${r.navn} (${r.serienummer})</h3>
+              <p><strong>Flokk:</strong> ${r.flokk ? r.flokk.navn : 'Ukjent'}</p>
+              <p><strong>Fødselsdato:</strong> ${new Date(r.fodselsdato).toLocaleDateString('no-NO')}</p>
+            </div>
+          `;
+        });
+        
+        eierReinsdyrElement.innerHTML = html;
+      } catch (error) {
+        console.error('Error:', error);
+        eierReinsdyrElement.innerHTML = '<p class="alert alert-danger">Kunne ikke laste reinsdyr for denne eieren.</p>';
+      }
+    }
+  </script>
+</body>
+</html>

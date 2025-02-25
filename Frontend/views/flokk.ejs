@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mine Flokker - Kukkik Ano</title>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <header class="header">
+    <div class="container">
+      <nav class="navbar">
+        <div class="logo">Kukkik Ano</div>
+        <ul class="nav-links" id="authLinks" style="display: none;">
+          <li><a href="/">Hjem</a></li>
+          <li><a href="/login">Logg inn</a></li>
+          <li><a href="/register">Registrer</a></li>
+          <li><a href="/eiere">Eiere</a></li>
+          <li><a href="/faq">FAQ</a></li>
+          <li><a href="/kart">Kart</a></li>
+          <li><a href="/databaseinfo">Database info</a></li>
+        </ul>
+        <ul class="nav-links" id="userLinks">
+          <li><a href="/">Hjem</a></li>
+          <li><a href="/reinsdyr">Mine reinsdyr</a></li>
+          <li><a href="/flokk">Mine flokker</a></li>
+          <li><a href="/eiere">Eiere</a></li>
+          <li><a href="/faq">FAQ</a></li>
+          <li><a href="/kart">Kart</a></li>
+          <li><a href="/databaseinfo">Database info</a></li>
+          <li><span id="username"></span></li>
+          <li><a href="#" id="logoutBtn">Logg ut</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+  
+  <main class="main">
+    <div class="container">
+      <h1 class="page-title">Mine Flokker</h1>
+      
+      <div class="card">
+        <h2 class="card-title collapsible" onclick="toggleCollapsible(this)">
+          Registrer ny flokk
+          <span class="toggle-icon">+</span>
+        </h2>
+        
+        <div style="display: none;">
+          <div id="message"></div>
+          
+          <form id="flokkForm">
+            <div class="form-group">
+              <label for="navn" class="form-label">Navn</label>
+              <input type="text" id="navn" class="form-input" required>
+            </div>
+            
+            <div class="form-group">
+              <label for="serieinndeling" class="form-label">Serieinndeling</label>
+              <input type="text" id="serieinndeling" class="form-input" required>
+            </div>
+            
+            <div class="form-group">
+              <label for="buemerke_navn" class="form-label">Buemerke (navn)</label>
+              <input type="text" id="buemerke_navn" class="form-input" required>
+            </div>
+            
+            <div class="form-group">
+              <label for="beiteomradeId" class="form-label">Beiteområde</label>
+              <select id="beiteomradeId" class="form-select" required>
+                <option value="">Laster beiteområder...</option>
+              </select>
+            </div>
+            
+            <div class="form-group">
+              <button type="submit" class="btn btn-primary">Registrer</button>
+            </div>
+          </form>
+        </div>
+      </div>
+      
+      <h2 class="section-title">Mine registrerte flokker</h2>
+      <div id="flokkList">
+        <p>Laster flokker...</p>
+      </div>
+    </div>
+  </main>
+  
+  <footer class="footer">
+    <div class="container">
+      <p>&copy; 2025 Kukkik Ano - Reinsdyrdatabase</p>
+    </div>
+  </footer>
+  
+  <script src="/js/scripts.js"></script>
+</body>
+</html>
