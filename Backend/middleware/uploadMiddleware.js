@@ -1,28 +1,32 @@
-const express = require('express');
-const router = express.Router();
-const uploadMiddleware = require('../middleware/uploadMiddleware');
-const { protect, owner } = require('../middleware/authMiddleware');
+const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
 
-// Route for uploading buemerke images
-router.post('/buemerke', protect, owner, uploadMiddleware.upload.single('buemerke_bilde'), async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ message: 'Ingen fil lastet opp' });
-    }
-    
-    // Return the file path
-    const filePath = `/uploads/${req.file.filename}`;
-    
-    res.json({
-      message: 'Fil lastet opp',
-      filePath
-    });
-  } catch (error) {
-    console.error('Upload error:', error);
-    res.status(500).json({ message: 'Feil under opplasting av fil' });
+// Configure storage
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/');
+  },
+  filename: function (req, file, cb) {
+    cb(null, Date.now() + path.extname(file.originalname));
   }
 });
 
-module.exports = router;
+// Check file type
+const fileFilter = (req, file, cb) => {
+  // Accept images only
+  if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/)) {
+    return cb(new Error('Only image files are allowed!'), false);
+  }
+  cb(null, true);
+};
+
+// Setup upload
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 1024 * 1024 * 5 // 5MB limit
+  },
+  fileFilter: fileFilter
+});
+
+module.exports = { upload };

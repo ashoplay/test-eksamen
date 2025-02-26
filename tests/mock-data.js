@@ -1,8 +1,3 @@
-/**
- * Mock Data Generator for Reinsdyr Registration System
- * This script generates sample data for testing and demonstration.
- */
-
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const User = require('../backend/models/User');
@@ -129,7 +124,7 @@ async function resetAndGenerate() {
         const flokk = new Flokk({
           navn: `${eier.navn}s Flokk ${j + 1}`,
           eier: newEier._id,
-          serieinndeling: String.fromCharCode(65 + j), // A, B, etc.
+          serieinndeling: String.fromCharCode(65 + j + (i * 2)), // A, B, C, D, etc.
           buemerke_navn: `${eier.navn}s Buemerke ${j + 1}`,
           buemerke_bilde: 'default_buemerke.png',
           beiteomrade: allBeiteomrader[Math.floor(Math.random() * allBeiteomrader.length)]._id
@@ -142,10 +137,16 @@ async function resetAndGenerate() {
       // Create reinsdyr for each flokk
       for (const flokk of flokker) {
         for (let k = 0; k < 12; k++) {
+          // Create unique serienummer with owner index, flokk letter and number
+          const seriePrefix = flokk.serieinndeling;
+          const serieNum = k + 1;
+          const serienummer = `${i + 1}${seriePrefix}${serieNum.toString().padStart(3, '0')}`;
+          
           const reinsdyr = new Reinsdyr({
-            serienummer: `${flokk.serieinndeling}${k + 1}`.padStart(4, '0'),
+            serienummer: serienummer,
             navn: `Reinsdyr ${flokk.serieinndeling}${k + 1}`,
-            flokk: flokk._id,
+            flokker: [flokk._id],  // Put the flokk in the flokker array
+            hovedFlokk: flokk._id, // Add hovedFlokk field
             fodselsdato: new Date(2018 + Math.floor(Math.random() * 5), Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1)
           });
           await reinsdyr.save();
@@ -174,6 +175,7 @@ async function resetAndGenerate() {
         reinsdyr: allReinsdyr[0]._id,
         fromEier: allEiere[0]._id,
         toEier: allEiere[1]._id,
+        offerText: "I'd like to trade this reindeer",
         status: 'pending'
       });
       await pendingTransaction.save();
@@ -184,6 +186,7 @@ async function resetAndGenerate() {
         reinsdyr: allReinsdyr[1]._id,
         fromEier: allEiere[0]._id,
         toEier: allEiere[1]._id,
+        offerText: "Would you accept this reindeer?",
         status: 'accepted_by_receiver'
       });
       await acceptedTransaction.save();
@@ -194,6 +197,7 @@ async function resetAndGenerate() {
         reinsdyr: allReinsdyr[2]._id,
         fromEier: allEiere[0]._id,
         toEier: allEiere[1]._id,
+        offerText: "This is a completed transaction",
         status: 'confirmed',
         createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // 1 week ago
       });

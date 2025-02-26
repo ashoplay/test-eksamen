@@ -175,7 +175,8 @@ async function testCreateReinsdyr() {
       body: JSON.stringify({
         serienummer: 'TEST-001',
         navn: 'Test Reinsdyr',
-        flokkId: testFlokkId1,
+        flokkIds: [testFlokkId1],
+        hovedFlokkId: testFlokkId1,
         fodselsdato: '2020-01-01'
       })
     });
@@ -193,12 +194,28 @@ async function testCreateReinsdyr() {
 async function testInternalTransfer() {
   console.log('Testing internal transfer between flokker...');
   
+  if (!testReinsdyrId || !testFlokkId2) {
+    console.error('❌ Internal transfer failed: Missing reinsdyr ID or target flokk ID');
+    return false;
+  }
+  
   try {
-    const data = await fetchWithAuth('/transaction/transfer-internal', {
+    // Add the second flokk to reinsdyr
+    const data = await fetchWithAuth('/reinsdyr/add-flokk', {
       method: 'POST',
       body: JSON.stringify({
         reinsdyrId: testReinsdyrId,
-        targetFlokkId: testFlokkId2
+        flokkId: testFlokkId2
+      })
+    });
+    
+    console.log('✅ Added second flokk to reinsdyr');
+    
+    // Now set the second flokk as hovedFlokk
+    const updateData = await fetchWithAuth(`/reinsdyr/${testReinsdyrId}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        hovedFlokkId: testFlokkId2
       })
     });
     
@@ -207,8 +224,9 @@ async function testInternalTransfer() {
     // Verify the transfer
     const reinsdyr = await fetchWithAuth(`/reinsdyr/${testReinsdyrId}`);
     
-    if (reinsdyr.flokk._id === testFlokkId2) {
-      console.log('✅ Verification successful - reinsdyr is now in the new flokk');
+    if (reinsdyr.hovedFlokk === testFlokkId2 || 
+        (reinsdyr.hovedFlokk && reinsdyr.hovedFlokk._id === testFlokkId2)) {
+      console.log('✅ Verification successful - reinsdyr hovedFlokk is now the new flokk');
       return true;
     } else {
       console.error('❌ Verification failed - reinsdyr is not in the expected flokk');
@@ -223,12 +241,18 @@ async function testInternalTransfer() {
 async function testCreateTransaction() {
   console.log('Testing transaction creation to another owner...');
   
+  if (!testReinsdyrId) {
+    console.error('❌ Transaction creation failed: Missing reinsdyr ID');
+    return false;
+  }
+  
   try {
     const data = await fetchWithAuth('/transaction', {
       method: 'POST',
       body: JSON.stringify({
         reinsdyrId: testReinsdyrId,
-        toEierEmail: testReceiverEmail
+        toEierEmail: testReceiverEmail,
+        offerText: 'Test transaction offer'
       })
     });
     
@@ -266,6 +290,11 @@ async function testLoginReceiver() {
 
 async function testAcceptTransaction() {
   console.log('Testing transaction acceptance by receiver...');
+  
+  if (!testTransactionId) {
+    console.error('❌ Transaction acceptance failed: Missing transaction ID');
+    return false;
+  }
   
   try {
     const data = await fetchWithAuth(`/transaction/${testTransactionId}/accept`, {
@@ -305,6 +334,11 @@ async function testLoginOriginalUser() {
 async function testConfirmTransaction() {
   console.log('Testing transaction confirmation by original owner...');
   
+  if (!testTransactionId) {
+    console.error('❌ Transaction confirmation failed: Missing transaction ID');
+    return false;
+  }
+  
   try {
     const data = await fetchWithAuth(`/transaction/${testTransactionId}/confirm`, {
       method: 'PUT',
@@ -338,6 +372,11 @@ async function testVerifyOwnership() {
   
   // Try to modify it as the receiver user
   await testLoginReceiver();
+  
+  if (!testReinsdyrId) {
+    console.error('❌ Security test failed - no reinsdyr ID to test with');
+    return false;
+  }
   
   try {
     await fetchWithAuth(`/reinsdyr/${testReinsdyrId}`, {
@@ -410,7 +449,8 @@ async function createSampleData() {
       body: JSON.stringify({
         serienummer: `TEST-${i.toString().padStart(3, '0')}`,
         navn: `Test Reinsdyr ${i}`,
-        flokkId: i <= 10 ? testFlokkId1 : testFlokkId2,
+        flokkIds: [i <= 10 ? testFlokkId1 : testFlokkId2],
+        hovedFlokkId: i <= 10 ? testFlokkId1 : testFlokkId2,
         fodselsdato: '2020-01-01'
       })
     });

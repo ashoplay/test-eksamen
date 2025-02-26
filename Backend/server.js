@@ -12,31 +12,47 @@ const beiteomradeRoutes = require('./routes/beiteomradeRoutes');
 const flokkRoutes = require('./routes/flokkRoutes');
 const transactionRoutes = require('./routes/transactionRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
+const fs = require('fs');
 
-// Load environment variables
+
 dotenv.config();
 
-// Connect to database and initialize data
+// Connect to db
 connectDB().then(() => {
   initializeData();
 });
 
 const app = express();
 
+
+const uploadsDir = path.join(__dirname, '../uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+  console.log('Created uploads directory');
+}
+
 // Middleware
-app.use(cors());
+const corsOptions = {
+  origin: process.env.NODE_ENV === 'production' 
+    ? [`http://${process.env.DOMAIN}`, `https://${process.env.DOMAIN}`] 
+    : 'http://localhost:5000',
+  credentials: true
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// Set up EJS view engine
+
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '../frontend/views'));
 
-// Static files
-app.use(express.static(path.join(__dirname, '../frontend/public')));
 
-// Routes for views
+app.use(express.static(path.join(__dirname, '../frontend/public')));
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
+// Routes views
 app.get('/', (req, res) => {
   res.render('index');
 });
@@ -80,6 +96,7 @@ app.get('/kart', (req, res) => {
 app.get('/databaseinfo', (req, res) => {
   res.render('databaseinfo');
 });
+
 app.get('/flokk/:id/reinsdyr', (req, res) => {
   res.render('flokk-reinsdyr');
 });
@@ -88,7 +105,7 @@ app.get('/transactions', (req, res) => {
   res.render('transactions');
 });
 
-// API routes
+
 app.use('/api/auth', authRoutes);
 app.use('/api/reinsdyr', reinsdyrRoutes);
 app.use('/api/eier', eierRoutes);
@@ -97,8 +114,22 @@ app.use('/api/flokk', flokkRoutes);
 app.use('/api/transaction', transactionRoutes);
 app.use('/api/upload', uploadRoutes);
 
-// Start server
+
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ 
+    message: 'En feil har oppstått på serveren', 
+    error: process.env.NODE_ENV === 'development' ? err.message : {}
+  });
+});
+
+if (process.env.NODE_ENV !== 'production') {
+  app.use('/tests', express.static(path.join(__dirname, '../tests')));
+  console.log('Test routes enabled - access at /tests/functional-tests.js');
+}
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`Server kjører på port ${PORT}`);
+  console.log(`Server kjører på port ${PORT} i ${process.env.NODE_ENV || 'development'} modus`);
+  console.log(`MongoDB URI: ${process.env.MONGO_URI || 'mongodb://localhost:27017/reinsdyrdb'}`);
 });
