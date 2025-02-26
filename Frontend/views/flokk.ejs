@@ -50,25 +50,31 @@
         <div style="display: none;">
           <div id="message"></div>
           
-          <form id="flokkForm">
+          <form id="flokkForm" enctype="multipart/form-data">
             <div class="form-group">
               <label for="navn" class="form-label">Navn</label>
-              <input type="text" id="navn" class="form-input" required>
+              <input type="text" id="navn" name="navn" class="form-input" required>
             </div>
             
             <div class="form-group">
               <label for="serieinndeling" class="form-label">Serieinndeling</label>
-              <input type="text" id="serieinndeling" class="form-input" required>
+              <input type="text" id="serieinndeling" name="serieinndeling" class="form-input" required>
             </div>
             
             <div class="form-group">
               <label for="buemerke_navn" class="form-label">Buemerke (navn)</label>
-              <input type="text" id="buemerke_navn" class="form-input" required>
+              <input type="text" id="buemerke_navn" name="buemerke_navn" class="form-input" required>
+            </div>
+            
+            <div class="form-group">
+              <label for="buemerke_bilde" class="form-label">Buemerke (bilde)</label>
+              <input type="file" id="buemerke_bilde" name="buemerke_bilde" class="form-input" accept="image/*">
+              <small>Velg et bilde for buemerket (valgfritt)</small>
             </div>
             
             <div class="form-group">
               <label for="beiteomradeId" class="form-label">Beiteområde</label>
-              <select id="beiteomradeId" class="form-select" required>
+              <select id="beiteomradeId" name="beiteomradeId" class="form-select" required>
                 <option value="">Laster beiteområder...</option>
               </select>
             </div>

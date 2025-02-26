@@ -38,14 +38,24 @@
     <div class="container">
       <nav class="navbar">
         <div class="logo">Kukkik Ano</div>
+        <ul class="nav-links" id="authLinks" style="display: none;">
+          <li><a href="/">Hjem</a></li>
+          <li><a href="/login">Logg inn</a></li>
+          <li><a href="/register">Registrer</a></li>
+          <li><a href="/eiere">Eiere</a></li>
+          <li><a href="/faq">FAQ</a></li>
+          <li><a href="/kart">Kart</a></li>
+          <li><a href="/databaseinfo">Database info</a></li>
+        </ul>
         <ul class="nav-links" id="userLinks">
           <li><a href="/">Hjem</a></li>
           <li><a href="/reinsdyr">Mine reinsdyr</a></li>
           <li><a href="/flokk">Mine flokker</a></li>
-          <li><a href="/transactions">Transaksjoner</a></li>
           <li><a href="/eiere">Eiere</a></li>
+          <li><a href="/transactions">Transaksjoner</a></li>
           <li><a href="/faq">FAQ</a></li>
           <li><a href="/kart">Kart</a></li>
+          <li><a href="/nettverkskart">Nettverkskart</a></li>
           <li><a href="/databaseinfo">Database info</a></li>
           <li><span id="username"></span></li>
           <li><a href="#" id="logoutBtn">Logg ut</a></li>
@@ -62,6 +72,7 @@
         <button class="tab-btn active" data-tab="all">Alle</button>
         <button class="tab-btn" data-tab="pending">Ventende</button>
         <button class="tab-btn" data-tab="completed">Fullførte</button>
+        <button class="tab-btn" data-tab="rejected">Avslåtte</button>
       </div>
       
       <div id="transactionsList">
@@ -131,26 +142,45 @@
     function renderTransactions(transactions) {
       const transactionsList = document.getElementById('transactionsList');
       let html = '';
+      const userData = getUserData();
       
       transactions.forEach(transaction => {
-        const isFromMe = transaction.fromEier._id === getUserData().eierId;
+        const isFromMe = transaction.fromEier._id === userData.eierId;
+        let statusClass = '';
+        
+        // Determine status class for styling
+        switch(transaction.status) {
+          case 'pending':
+            statusClass = 'transaction-pending';
+            break;
+          case 'accepted_by_receiver':
+            statusClass = 'transaction-accepted';
+            break;
+          case 'confirmed':
+            statusClass = 'transaction-accepted';
+            break;
+          case 'rejected_by_receiver':
+          case 'cancelled':
+            statusClass = 'transaction-rejected';
+            break;
+        }
         
         html += `
-          <div class="card transaction-card transaction-${transaction.status}">
+          <div class="card transaction-card ${statusClass}" data-id="${transaction._id}" data-status="${transaction.status}">
             <h3 class="card-title">
               ${isFromMe ? 'Sendt til' : 'Mottatt fra'}: 
               ${isFromMe ? transaction.toEier.navn : transaction.fromEier.navn}
             </h3>
-            <p><strong>Reinsdyr:</strong> ${transaction.reinsdyr.navn} (${transaction.reinsdyr.serienummer})</p>
+            <p><strong>Reinsdyr:</strong> ${transaction.reinsdyr?.navn || 'Ukjent'} (${transaction.reinsdyr?.serienummer || 'Ukjent'})</p>
             
             <div class="offer-text">
-              <strong>Handelstilbud:</strong> "${transaction.offerText}"
+              <strong>Handelstilbud:</strong> "${transaction.offerText || 'Ingen tilbud tekst'}"
             </div>
             
             <p><strong>Status:</strong> ${getStatusLabel(transaction.status)}</p>
             <p><strong>Dato:</strong> ${new Date(transaction.createdAt).toLocaleString('no-NO')}</p>
             
-            ${renderActionButtons(transaction)}
+            ${renderActionButtons(transaction, userData)}
           </div>
         `;
       });
@@ -164,7 +194,7 @@
     function getStatusLabel(status) {
       const statusLabels = {
         'pending': 'Venter på godkjenning',
-        'accepted_by_receiver': 'Godkjent av mottaker',
+        'accepted_by_receiver': 'Godkjent av mottaker, venter på avsender',
         'rejected_by_receiver': 'Avvist av mottaker',
         'confirmed': 'Fullført',
         'cancelled': 'Kansellert'
@@ -172,8 +202,8 @@
       return statusLabels[status] || status;
     }
     
-    function renderActionButtons(transaction) {
-      const isFromMe = transaction.fromEier._id === getUserData().eierId;
+    function renderActionButtons(transaction, userData) {
+      const isFromMe = transaction.fromEier._id === userData.eierId;
       
       // Action buttons based on transaction status and user role
       if (isFromMe) {
@@ -299,17 +329,23 @@
       const transactions = document.querySelectorAll('.transaction-card');
       
       transactions.forEach(transaction => {
+        const status = transaction.getAttribute('data-status');
+        
         switch(tab) {
           case 'all':
             transaction.style.display = 'block';
             break;
           case 'pending':
             transaction.style.display = 
-              transaction.classList.contains('transaction-pending') ? 'block' : 'none';
+              (status === 'pending' || status === 'accepted_by_receiver') ? 'block' : 'none';
             break;
           case 'completed':
             transaction.style.display = 
-              transaction.classList.contains('transaction-confirmed') ? 'block' : 'none';
+              (status === 'confirmed') ? 'block' : 'none';
+            break;
+          case 'rejected':
+            transaction.style.display = 
+              (status === 'rejected_by_receiver' || status === 'cancelled') ? 'block' : 'none';
             break;
         }
       });

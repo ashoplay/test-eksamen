@@ -73,19 +73,24 @@ const eierController = {
   
   searchEiere: async (req, res) => {
     try {
-      const searchTerm = req.query.q;
+      const searchTerm = req.query.q || '';
       
-      if (!searchTerm) {
-        return res.status(400).json({ message: 'Søketerm er påkrevd' });
+      // Build the search query
+      let query = {};
+      
+      // If a search term is provided, use it for filtering
+      if (searchTerm.trim() !== '') {
+        query = {
+          $or: [
+            { navn: { $regex: searchTerm, $options: 'i' } },
+            { epost: { $regex: searchTerm, $options: 'i' } },
+            { telefonnummer: { $regex: searchTerm, $options: 'i' } }
+          ]
+        };
       }
       
-      const eiere = await Eier.find({
-        $or: [
-          { navn: { $regex: searchTerm, $options: 'i' } },
-          { epost: { $regex: searchTerm, $options: 'i' } },
-          { telefonnummer: { $regex: searchTerm, $options: 'i' } }
-        ]
-      });
+      // Get eiere
+      const eiere = await Eier.find(query).select('navn epost telefonnummer kontaktsprak');
       
       res.json(eiere);
     } catch (error) {

@@ -2,14 +2,23 @@ const Reinsdyr = require('../models/Reinsdyr');
 const Flokk = require('../models/Flokk');
 const Eier = require('../models/Eier');
 
+// Create controller object
 const reinsdyrController = {
   registerReinsdyr: async (req, res) => {
     try {
-      const { serienummer, navn, flokkId, fodselsdato } = req.body;
+      const { serienummer, navn, flokkIds, hovedFlokkId, fodselsdato, eierId } = req.body;
       
       // Check if required fields are present
-      if (!serienummer || !navn || !flokkId || !fodselsdato) {
+      if (!serienummer || !navn || !flokkIds || !hovedFlokkId || !fodselsdato) {
         return res.status(400).json({ message: 'Alle felt må fylles ut' });
+      }
+
+      // Ensure flokkIds is an array
+      const flokkIdsArray = Array.isArray(flokkIds) ? flokkIds : [flokkIds];
+      
+      // Check if hovedFlokkId is in the flokker array
+      if (!flokkIdsArray.includes(hovedFlokkId)) {
+        return res.status(400).json({ message: 'Hovedflokk må være en del av flokkene' });
       }
       
       // Check if reinsdyr already exists
@@ -18,22 +27,35 @@ const reinsdyrController = {
         return res.status(400).json({ message: 'Reinsdyr med dette serienummeret eksisterer allerede' });
       }
       
-      // Check if flokk exists and belongs to the user
-      const flokk = await Flokk.findById(flokkId);
-      if (!flokk) {
-        return res.status(404).json({ message: 'Flokken finnes ikke' });
+      // Check if all flokker exist and belong to the same owner
+      const flokker = await Flokk.find({ _id: { $in: flokkIdsArray } });
+      
+      if (flokker.length !== flokkIdsArray.length) {
+        return res.status(404).json({ message: 'En eller flere flokker finnes ikke' });
       }
       
-      // Verify that the user owns the flokk
-      if (flokk.eier.toString() !== req.eierId.toString()) {
-        return res.status(401).json({ message: 'Du kan bare registrere reinsdyr i dine egne flokker' });
+      // Check if all flokker belong to the same owner
+      const eierIds = flokker.map(flokk => flokk.eier.toString());
+      const uniqueEierIds = [...new Set(eierIds)];
+      
+      if (uniqueEierIds.length > 1) {
+        return res.status(400).json({ message: 'Alle flokker må tilhøre samme eier' });
+      }
+      
+      // Verify permissions
+      const targetEierId = eierId || req.eierId;
+      if (targetEierId !== uniqueEierIds[0] && !req.user.isAdmin) {
+        return res.status(401).json({ 
+          message: 'Du kan bare registrere reinsdyr i dine egne flokker eller med administratorrettigheter'
+        });
       }
       
       // Create new reinsdyr
       const newReinsdyr = new Reinsdyr({
         serienummer,
         navn,
-        flokk: flokkId,
+        flokker: flokkIdsArray,
+        hovedFlokk: hovedFlokkId,
         fodselsdato: new Date(fodselsdato)
       });
       
@@ -54,17 +76,18 @@ const reinsdyrController = {
       if (req.query.eier) {
         const flokker = await Flokk.find({ eier: req.query.eier });
         const flokkIds = flokker.map(flokk => flokk._id);
-        query = { flokk: { $in: flokkIds } };
+        query = { flokker: { $in: flokkIds } };
       }
       
       const reinsdyr = await Reinsdyr.find(query)
         .populate({
-          path: 'flokk',
+          path: 'flokker',
           populate: {
             path: 'eier',
             select: 'navn epost telefonnummer'
           }
-        });
+        })
+        .populate('hovedFlokk');
       
       res.json(reinsdyr);
     } catch (error) {
@@ -77,12 +100,13 @@ const reinsdyrController = {
     try {
       const reinsdyr = await Reinsdyr.findById(req.params.id)
         .populate({
-          path: 'flokk',
+          path: 'flokker',
           populate: {
             path: 'eier',
             select: 'navn epost telefonnummer'
           }
-        });
+        })
+        .populate('hovedFlokk');
       
       if (!reinsdyr) {
         return res.status(404).json({ message: 'Reinsdyr ikke funnet' });
@@ -110,12 +134,12 @@ const reinsdyrController = {
           { navn: { $regex: searchTerm, $options: 'i' } }
         ]
       }).populate({
-        path: 'flokk',
+        path: 'flokker',
         populate: {
           path: 'eier',
           select: 'navn epost telefonnummer'
         }
-      });
+      }).populate('hovedFlokk');
       
       // Find flokker with matching names
       const flokker = await Flokk.find({ 
@@ -125,14 +149,14 @@ const reinsdyrController = {
       
       // Find reinsdyr in those flokker
       const flokkMatches = await Reinsdyr.find({
-        flokk: { $in: flokkIds }
+        flokker: { $in: flokkIds }
       }).populate({
-        path: 'flokk',
+        path: 'flokker',
         populate: {
           path: 'eier',
           select: 'navn epost telefonnummer'
         }
-      });
+      }).populate('hovedFlokk');
       
       // Find eiere with matching names
       const eiere = await Eier.find({ 
@@ -148,14 +172,14 @@ const reinsdyrController = {
       
       // Find reinsdyr in those flokker
       const eierMatches = await Reinsdyr.find({
-        flokk: { $in: eierFlokkIds }
+        flokker: { $in: eierFlokkIds }
       }).populate({
-        path: 'flokk',
+        path: 'flokker',
         populate: {
           path: 'eier',
           select: 'navn epost telefonnummer'
         }
-      });
+      }).populate('hovedFlokk');
       
       // Combine all results and remove duplicates
       const allResults = [...directMatches];
@@ -198,9 +222,9 @@ const reinsdyrController = {
       // Get all flokk IDs
       const flokkIds = flokker.map(flokk => flokk._id);
       
-      // Create the query
+      // Create the query - find reinsdyr that have any of the user's flokker
       const query = { 
-        flokk: { $in: flokkIds }
+        flokker: { $in: flokkIds }
       };
       
       console.log('getUserReinsdyr - Query:', JSON.stringify(query)); 
@@ -208,7 +232,8 @@ const reinsdyrController = {
       
       // Get all reinsdyr in those flokker
       const reinsdyr = await Reinsdyr.find(query)
-        .populate('flokk')
+        .populate('flokker')
+        .populate('hovedFlokk')
         .sort({ createdAt: -1 });
       
       console.log(`getUserReinsdyr - Found ${reinsdyr.length} reinsdyr`);
@@ -244,11 +269,13 @@ const reinsdyrController = {
       }
       
       // Count total reinsdyr in this flokk
-      const totalReinsdyr = await Reinsdyr.countDocuments({ flokk: flokkId });
+      const totalReinsdyr = await Reinsdyr.countDocuments({ flokker: flokkId });
       const totalPages = Math.ceil(totalReinsdyr / limit);
       
       // Get reinsdyr with pagination
-      const reinsdyr = await Reinsdyr.find({ flokk: flokkId })
+      const reinsdyr = await Reinsdyr.find({ flokker: flokkId })
+        .populate('flokker')
+        .populate('hovedFlokk')
         .skip(skip)
         .limit(limit)
         .sort({ createdAt: -1 });
@@ -268,7 +295,7 @@ const reinsdyrController = {
 
   updateReinsdyr: async (req, res) => {
     try {
-      const { serienummer, navn, flokkId, fodselsdato } = req.body;
+      const { serienummer, navn, flokkIds, hovedFlokkId, fodselsdato, eierId } = req.body;
       
       // Find reinsdyr
       const reinsdyr = await Reinsdyr.findById(req.params.id);
@@ -277,33 +304,53 @@ const reinsdyrController = {
         return res.status(404).json({ message: 'Reinsdyr ikke funnet' });
       }
       
-      // Check if flokk exists and belongs to the user
-      const flokk = await Flokk.findById(reinsdyr.flokk);
-      if (!flokk) {
-        return res.status(404).json({ message: 'Flokken finnes ikke' });
+      // Ensure arrays
+      const flokkIdsArray = flokkIds ? (Array.isArray(flokkIds) ? flokkIds : [flokkIds]) : null;
+      const currentFlokkIds = reinsdyr.flokker.map(id => id.toString());
+      
+      // Check hovedFlokkId is in flokker array if both are being updated
+      if (flokkIdsArray && hovedFlokkId && !flokkIdsArray.includes(hovedFlokkId)) {
+        return res.status(400).json({ message: 'Hovedflokk må være en del av flokkene' });
       }
       
-      // Verify that the user owns the flokk
-      if (flokk.eier.toString() !== req.eierId.toString()) {
-        return res.status(401).json({ message: 'Du kan bare oppdatere reinsdyr i dine egne flokker' });
+      // If only hovedFlokk is updated, check it's in the current flokker array
+      if (!flokkIdsArray && hovedFlokkId && !currentFlokkIds.includes(hovedFlokkId)) {
+        return res.status(400).json({ message: 'Hovedflokk må være en del av flokkene' });
       }
       
-      // If changing flokk, verify the new flokk belongs to the user
-      if (flokkId && flokkId !== flokk._id.toString()) {
-        const newFlokk = await Flokk.findById(flokkId);
-        if (!newFlokk) {
-          return res.status(404).json({ message: 'Ny flokk finnes ikke' });
-        }
+      // Check ownership
+      let userCanEdit = false;
+      let flokkerToCheck = flokkIdsArray || currentFlokkIds;
+      
+      // If user is admin, they can edit any reinsdyr
+      if (req.user.isAdmin) {
+        userCanEdit = true;
+      } else {
+        // Get user's flokker
+        const userFlokker = await Flokk.find({ eier: req.eierId });
+        const userFlokkIds = userFlokker.map(f => f._id.toString());
         
-        if (newFlokk.eier.toString() !== req.eierId.toString()) {
-          return res.status(401).json({ message: 'Du kan bare flytte reinsdyr til dine egne flokker' });
-        }
+        // Check if user has any of the reinsdyr's flokker
+        const hasAnyFlokk = currentFlokkIds.some(id => userFlokkIds.includes(id));
+        
+        // Check if all new flokker belong to the user
+        const allNewFlokksBelongToUser = !flokkIdsArray || 
+          flokkIdsArray.every(id => userFlokkIds.includes(id));
+        
+        userCanEdit = hasAnyFlokk && allNewFlokksBelongToUser;
+      }
+      
+      if (!userCanEdit) {
+        return res.status(401).json({ 
+          message: 'Du kan bare oppdatere reinsdyr i dine egne flokker' 
+        });
       }
       
       // Update fields
       if (serienummer) reinsdyr.serienummer = serienummer;
       if (navn) reinsdyr.navn = navn;
-      if (flokkId) reinsdyr.flokk = flokkId;
+      if (flokkIdsArray) reinsdyr.flokker = flokkIdsArray;
+      if (hovedFlokkId) reinsdyr.hovedFlokk = hovedFlokkId;
       if (fodselsdato) reinsdyr.fodselsdato = new Date(fodselsdato);
       
       await reinsdyr.save();
@@ -324,20 +371,113 @@ const reinsdyrController = {
         return res.status(404).json({ message: 'Reinsdyr ikke funnet' });
       }
       
-      // Check if flokk exists and belongs to the user
-      const flokk = await Flokk.findById(reinsdyr.flokk);
-      if (!flokk) {
-        return res.status(404).json({ message: 'Flokken finnes ikke' });
-      }
+      // Check if any flokk exists and belongs to the user
+      const flokkIds = reinsdyr.flokker;
+      const flokker = await Flokk.find({ _id: { $in: flokkIds } });
       
-      // Verify that the user owns the flokk
-      if (flokk.eier.toString() !== req.eierId.toString()) {
+      // Check if user owns any of the flokker
+      const userOwnsAnyFlokk = flokker.some(flokk => flokk.eier.toString() === req.eierId.toString());
+      
+      if (!userOwnsAnyFlokk && !req.user.isAdmin) {
         return res.status(401).json({ message: 'Du kan bare slette reinsdyr i dine egne flokker' });
       }
       
       await reinsdyr.deleteOne();
       
       res.json({ message: 'Reinsdyr slettet' });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Server error' });
+    }
+  },
+  
+  // Add flokk to reinsdyr
+  addFlokkToReinsdyr: async (req, res) => {
+    try {
+      const { reinsdyrId, flokkId } = req.body;
+      
+      // Find the reinsdyr
+      const reinsdyr = await Reinsdyr.findById(reinsdyrId);
+      if (!reinsdyr) {
+        return res.status(404).json({ message: 'Reinsdyr ikke funnet' });
+      }
+      
+      // Find the flokk
+      const flokk = await Flokk.findById(flokkId);
+      if (!flokk) {
+        return res.status(404).json({ message: 'Flokk ikke funnet' });
+      }
+      
+      // Check if user owns the flokk
+      if (flokk.eier.toString() !== req.eierId.toString() && !req.user.isAdmin) {
+        return res.status(401).json({ message: 'Du kan bare legge til reinsdyr i dine egne flokker' });
+      }
+      
+      // Check if the reinsdyr already has this flokk
+      if (reinsdyr.flokker.includes(flokkId)) {
+        return res.status(400).json({ message: 'Reinsdyret er allerede i denne flokken' });
+      }
+      
+      // Add the flokk to the reinsdyr
+      reinsdyr.flokker.push(flokkId);
+      
+      // If reinsdyr has no hovedFlokk, set this as the hovedFlokk
+      if (!reinsdyr.hovedFlokk) {
+        reinsdyr.hovedFlokk = flokkId;
+      }
+      
+      await reinsdyr.save();
+      
+      res.json({ message: 'Flokk lagt til reinsdyr', reinsdyr });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Server error' });
+    }
+  },
+  
+  // Remove flokk from reinsdyr
+  removeFlokkFromReinsdyr: async (req, res) => {
+    try {
+      const { reinsdyrId, flokkId } = req.body;
+      
+      // Find the reinsdyr
+      const reinsdyr = await Reinsdyr.findById(reinsdyrId);
+      if (!reinsdyr) {
+        return res.status(404).json({ message: 'Reinsdyr ikke funnet' });
+      }
+      
+      // Find the flokk
+      const flokk = await Flokk.findById(flokkId);
+      if (!flokk) {
+        return res.status(404).json({ message: 'Flokk ikke funnet' });
+      }
+      
+      // Check if user owns the flokk
+      if (flokk.eier.toString() !== req.eierId.toString() && !req.user.isAdmin) {
+        return res.status(401).json({ message: 'Du kan bare fjerne reinsdyr fra dine egne flokker' });
+      }
+      
+      // Check if the reinsdyr has this flokk
+      if (!reinsdyr.flokker.includes(flokkId)) {
+        return res.status(400).json({ message: 'Reinsdyret er ikke i denne flokken' });
+      }
+      
+      // Ensure reinsdyr has at least one flokk after removal
+      if (reinsdyr.flokker.length <= 1) {
+        return res.status(400).json({ message: 'Reinsdyret må være i minst én flokk' });
+      }
+      
+      // Remove the flokk from the reinsdyr
+      reinsdyr.flokker = reinsdyr.flokker.filter(id => id.toString() !== flokkId);
+      
+      // If the removed flokk was the hovedFlokk, set a new hovedFlokk
+      if (reinsdyr.hovedFlokk.toString() === flokkId) {
+        reinsdyr.hovedFlokk = reinsdyr.flokker[0];
+      }
+      
+      await reinsdyr.save();
+      
+      res.json({ message: 'Flokk fjernet fra reinsdyr', reinsdyr });
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: 'Server error' });

@@ -10,7 +10,12 @@ const ReinsdyrSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  flokk: {
+  flokker: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Flokk',
+    required: true
+  }],
+  hovedFlokk: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Flokk',
     required: true

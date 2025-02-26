@@ -11,6 +11,7 @@ const eierRoutes = require('./routes/eierRoutes');
 const beiteomradeRoutes = require('./routes/beiteomradeRoutes');
 const flokkRoutes = require('./routes/flokkRoutes');
 const transactionRoutes = require('./routes/transactionRoutes');
+const uploadRoutes = require('./routes/uploadRoutes');
 
 // Load environment variables
 dotenv.config();
@@ -94,6 +95,7 @@ app.use('/api/eier', eierRoutes);
 app.use('/api/beiteomrade', beiteomradeRoutes);
 app.use('/api/flokk', flokkRoutes);
 app.use('/api/transaction', transactionRoutes);
+app.use('/api/upload', uploadRoutes);
 
 // Start server
 const PORT = process.env.PORT || 5000;

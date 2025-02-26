@@ -31,6 +31,12 @@ const transactionController = {
       if (!reinsdyr) {
         return res.status(404).json({ message: 'Reinsdyret finnes ikke' });
       }
+
+      // Check reinsdyr ownership
+      const flokk = await Flokk.findById(reinsdyr.flokk);
+      if (!flokk || flokk.eier.toString() !== req.eierId.toString()) {
+        return res.status(401).json({ message: 'Du eier ikke dette reinsdyret' });
+      }
   
       // Prevent sending to self
       if (toEier._id.toString() === fromEier._id.toString()) {
@@ -56,7 +62,7 @@ const transactionController = {
         status: 'pending'
       });
   
-      // Populate the transaction before saving to ensure all details are correct
+      // Save and populate the transaction
       await newTransaction.save();
       await newTransaction.populate([
         { path: 'fromEier', select: 'navn epost' },
@@ -69,12 +75,12 @@ const transactionController = {
         transaction: newTransaction 
       });
     } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: 'Server error' });
+      console.error('Error in createTransaction:', error);
+      res.status(500).json({ message: 'Server error', error: error.message });
     }
   },
   
-  // Ensure getUserTransactions method retrieves transactions for both sent and received
+  // Get all transactions for the current user
   getUserTransactions: async (req, res) => {
     try {
       const transactions = await Transaction.find({
