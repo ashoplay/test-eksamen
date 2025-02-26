@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Transaksjoner - Kukkik Ano</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <style>
+    .transaction-card {
+      margin-bottom: 20px;
+      border-left-width: 5px;
+      border-left-style: solid;
+    }
+    
+    .transaction-pending {
+      border-left-color: #ffc107; /* Yellow */
+    }
+    
+    .transaction-accepted {
+      border-left-color: #17a2b8; /* Info blue */
+    }
+    
+    .transaction-confirmed {
+      border-left-color: #28a745; /* Green */
+    }
+    
+    .transaction-rejected, .transaction-cancelled {
+      border-left-color: #dc3545; /* Red */
+      opacity: 0.7;
+    }
+    
+    .transaction-actions {
+      margin-top: 15px;
+      padding-top: 15px;
+      border-top: 1px solid #eee;
+    }
+    
+    .transaction-date {
+      font-size: 0.85rem;
+      color: #6c757d;
+      margin-bottom: 8px;
+    }
+    
+    .tab-nav {
+      display: flex;
+      list-style: none;
+      padding: 0;
+      margin-bottom: 20px;
+      border-bottom: 1px solid #dee2e6;
+    }
+    
+    .tab-nav li {
+      margin-right: 5px;
+    }
+    
+    .tab-nav a {
+      display: block;
+      padding: 8px 16px;
+      text-decoration: none;
+      color: #495057;
+      border: 1px solid transparent;
+      border-top-left-radius: 4px;
+      border-top-right-radius: 4px;
+    }
+    
+    .tab-nav a:hover {
+      border-color: #e9ecef #e9ecef #dee2e6;
+      background-color: #f8f9fa;
+    }
+    
+    .tab-nav .active {
+      color: #007bff;
+      background-color: #fff;
+      border-color: #dee2e6 #dee2e6 #fff;
+    }
+    
+    .tab-content > div {
+      display: none;
+    }
+    
+    .tab-content > div.active {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="container">
+      <nav class="navbar">
+        <div class="logo">Kukkik Ano</div>
+        <ul class="nav-links" id="authLinks" style="display: none;">
+          <li><a href="/">Hjem</a></li>
+          <li><a href="/login">Logg inn</a></li>
+          <li><a href="/register">Registrer</a></li>
+          <li><a href="/eiere">Eiere</a></li>
+          <li><a href="/faq">FAQ</a></li>
+          <li><a href="/kart">Kart</a></li>
+          <li><a href="/nettverkskart">Nettverkskart</a></li>
+          <li><a href="/databaseinfo">Database info</a></li>
+        </ul>
+        <ul class="nav-links" id="userLinks">
+          <li><a href="/">Hjem</a></li>
+          <li><a href="/reinsdyr">Mine reinsdyr</a></li>
+          <li><a href="/flokk">Mine flokker</a></li>
+          <li><a href="/transactions">Transaksjoner</a></li>
+          <li><a href="/eiere">Eiere</a></li>
+          <li><a href="/faq">FAQ</a></li>
+          <li><a href="/kart">Kart</a></li>
+          <li><a href="/nettverkskart">Nettverkskart</a></li>
+          <li><a href="/databaseinfo">Database info</a></li>
+          <li><span id="username"></span></li>
+          <li><a href="#" id="logoutBtn">Logg ut</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+  
+  <main class="main">
+    <div class="container">
+      <h1 class="page-title">Transaksjoner</h1>
+      
+      <ul class="tab-nav">
+        <li><a href="#" class="active" data-tab="all">Alle transaksjoner</a></li>
+        <li><a href="#" data-tab="sender">Sendte</a></li>
+        <li><a href="#" data-tab="receiver">Mottatte</a></li>
+        <li><a href="#" data-tab="pending">Venter på godkjenning</a></li>
+        <li><a href="#" data-tab="completed">Fullførte</a></li>
+      </ul>
+      
+      <div class="tab-content">
+        <div id="tab-all" class="active">
+          <div id="allTransactions">
+            <p>Laster transaksjoner...</p>
+          </div>
+        </div>
+        
+        <div id="tab-sender">
+          <div id="senderTransactions">
+            <p>Laster transaksjoner...</p>
+          </div>
+        </div>
+        
+        <div id="tab-receiver">
+          <div id="receiverTransactions">
+            <p>Laster transaksjoner...</p>
+          </div>
+        </div>
+        
+        <div id="tab-pending">
+          <div id="pendingTransactions">
+            <p>Laster transaksjoner...</p>
+          </div>
+        </div>
+        
+        <div id="tab-completed">
+          <div id="completedTransactions">
+            <p>Laster transaksjoner...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+  
+  <footer class="footer">
+    <div class="container">
+      <p>&copy; 2025 Kukkik Ano - Reinsdyrdatabase</p>
+    </div>
+  </footer>
+  
+  <script src="/js/scripts.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Load transactions
+      loadTransactions();
+      
+      // Setup tabs
+      document.querySelectorAll('.tab-nav a').forEach(tab => {
+        tab.addEventListener('click', function(e) {
+          e.preventDefault();
+          
+          // Set active tab
+          document.querySelectorAll('.tab-nav a').forEach(t => t.classList.remove('active'));
+          this.classList.add('active');
+          
+          // Show active tab content
+          document.querySelectorAll('.tab-content > div').forEach(content => content.classList.remove('active'));
+          document.getElementById(`tab-${this.dataset.tab}`).classList.add('active');
+        });
+      });
+      
+      async function loadTransactions() {
+        try {
+          const response = await fetch('/api/transaction/my', {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+          });
+          
+          if (!response.ok) {
+            throw new Error('Kunne ikke laste transaksjoner');
+          }
+          
+          const transactions = await response.json();
+          
+          // Filter transactions for each tab
+          const allTransactions = transactions;
+          const senderTransactions = transactions.filter(t => t.fromEier._id === getUserData().eierId);
+          const receiverTransactions = transactions.filter(t => t.toEier._id === getUserData().eierId);
+          const pendingTransactions = transactions.filter(t => 
+            (t.status === 'pending' || t.status === 'accepted_by_receiver') && 
+            (t.fromEier._id === getUserData().eierId || t.toEier._id === getUserData().eierId)
+          );
+          const completedTransactions = transactions.filter(t => 
+            (t.status === 'confirmed' || t.status === 'rejected_by_receiver' || t.status === 'cancelled')
+          );
+          
+          // Render each tab
+          document.getElementById('allTransactions').innerHTML = renderTransactions(allTransactions);
+          document.getElementById('senderTransactions').innerHTML = renderTransactions(senderTransactions);
+          document.getElementById('receiverTransactions').innerHTML = renderTransactions(receiverTransactions);
+          document.getElementById('pendingTransactions').innerHTML = renderTransactions(pendingTransactions);
+          document.getElementById('completedTransactions').innerHTML = renderTransactions(completedTransactions);
+          
+          // Add event listeners to action buttons
+          setupActionButtons();
+        } catch (error) {
+          console.error('Error:', error);
+          document.getElementById('allTransactions').innerHTML = '<p class="alert alert-danger">Kunne ikke laste transaksjoner</p>';
+        }
+      }
+      
+      function renderTransactions(transactions) {
+        if (transactions.length === 0) {
+          return '<p>Ingen transaksjoner funnet.</p>';
+        }
+        
+        let html = '';
+        
+        transactions.forEach(transaction => {
+          const isFromMe = transaction.fromEier._id === getUserData().eierId;
+          const statusDisplay = getStatusDisplay(transaction.status);
+          const cardClass = `transaction-${transaction.status.replace('_by_receiver', '')}`;
+          
+          html += `
+            <div class="card transaction-card ${cardClass}">
+              <div class="transaction-date">
+                ${new Date(transaction.createdAt).toLocaleString('no-NO')}
+              </div>
+              <h3 class="card-title">
+                ${isFromMe ? 'Sendt til' : 'Mottatt fra'}: 
+                ${isFromMe ? transaction.toEier.navn : transaction.fromEier.navn}
+              </h3>
+              <p><strong>Status:</strong> ${statusDisplay}</p>
+              <p><strong>Reinsdyr:</strong> ${transaction.reinsdyr ? transaction.reinsdyr.navn : 'Ukjent'} 
+                (${transaction.reinsdyr ? transaction.reinsdyr.serienummer : 'Ukjent'})</p>
+              <p><strong>Fra:</strong> ${transaction.fromEier.navn} (${transaction.fromEier.epost})</p>
+              <p><strong>Til:</strong> ${transaction.toEier.navn} (${transaction.toEier.epost})</p>
+              
+              <div class="transaction-actions">
+                ${renderActionButtons(transaction, isFromMe)}
+              </div>
+            </div>
+          `;
+        });
+        
+        return html;
+      }
+      
+      function getStatusDisplay(status) {
+        switch (status) {
+          case 'pending':
+            return 'Venter på godkjenning fra mottaker';
+          case 'accepted_by_receiver':
+            return 'Godkjent av mottaker, venter på endelig bekreftelse';
+          case 'rejected_by_receiver':
+            return 'Avslått av mottaker';
+          case 'confirmed':
+            return 'Fullført';
+          case 'cancelled':
+            return 'Kansellert av avsender';
+          default:
+            return status;
+        }
+      }
+      
+      function renderActionButtons(transaction, isFromMe) {
+        // If the transaction is already completed, no actions needed
+        if (['confirmed', 'rejected_by_receiver', 'cancelled'].includes(transaction.status)) {
+          return '';
+        }
+        
+        // Actions for sender
+        if (isFromMe) {
+          if (transaction.status === 'pending') {
+            return `<button class="btn btn-danger cancel-transaction-btn" data-id="${transaction._id}">Kanseller</button>`;
+          } else if (transaction.status === 'accepted_by_receiver') {
+            return `
+              <button class="btn btn-primary confirm-transaction-btn" data-id="${transaction._id}">Bekreft overføring</button>
+              <button class="btn btn-danger cancel-transaction-btn" data-id="${transaction._id}">Avslå</button>
+            `;
+          }
+        } 
+        // Actions for receiver
+        else {
+          if (transaction.status === 'pending') {
+            return `
+              <button class="btn btn-primary accept-transaction-btn" data-id="${transaction._id}">Godta</button>
+              <button class="btn btn-danger reject-transaction-btn" data-id="${transaction._id}">Avslå</button>
+            `;
+          }
+        }
+        
+        return '';
+      }
+      
+      function setupActionButtons() {
+        // Accept transaction (receiver)
+        document.querySelectorAll('.accept-transaction-btn').forEach(btn => {
+          btn.addEventListener('click', async function() {
+            const id = this.getAttribute('data-id');
+            try {
+              const response = await fetch(`/api/transaction/${id}/accept`, {
+                method: 'PUT',
+                headers: {
+                  'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+              });
+              
+              const data = await response.json();
+              
+              if (response.ok) {
+                alert(data.message);
+                loadTransactions();
+              } else {
+                alert(data.message || 'Kunne ikke godta transaksjonen');
+              }
+            } catch (error) {
+              console.error('Error:', error);
+              alert('Det oppstod en feil ved godkjenning av transaksjonen');
+            }
+          });
+        });
+        
+        // Reject transaction (receiver)
+        document.querySelectorAll('.reject-transaction-btn').forEach(btn => {
+          btn.addEventListener('click', async function() {
+            const id = this.getAttribute('data-id');
+            try {
+              const response = await fetch(`/api/transaction/${id}/reject`, {
+                method: 'PUT',
+                headers: {
+                  'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+              });
+              
+              const data = await response.json();
+              
+              if (response.ok) {
+                alert(data.message);
+                loadTransactions();
+              } else {
+                alert(data.message || 'Kunne ikke avslå transaksjonen');
+              }
+            } catch (error) {
+              console.error('Error:', error);
+              alert('Det oppstod en feil ved avslag av transaksjonen');
+            }
+          });
+        });
+        
+        // Confirm transaction (sender - final step)
+        document.querySelectorAll('.confirm-transaction-btn').forEach(btn => {
+          btn.addEventListener('click', async function() {
+            const id = this.getAttribute('data-id');
+            try {
+              const response = await fetch(`/api/transaction/${id}/confirm`, {
+                method: 'PUT',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify({})
+              });
+              
+              const data = await response.json();
+              
+              if (response.ok) {
+                alert(data.message);
+                loadTransactions();
+              } else {
+                alert(data.message || 'Kunne ikke bekrefte transaksjonen');
+              }
+            } catch (error) {
+              console.error('Error:', error);
+              alert('Det oppstod en feil ved bekreftelse av transaksjonen');
+            }
+          });
+        });
+        
+        // Cancel transaction (sender)
+        document.querySelectorAll('.cancel-transaction-btn').forEach(btn => {
+          btn.addEventListener('click', async function() {
+            const id = this.getAttribute('data-id');
+            try {
+              const response = await fetch(`/api/transaction/${id}/cancel`, {
+                method: 'PUT',
+                headers: {
+                  'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+              });
+              
+              const data = await response.json();
+              
+              if (response.ok) {
+                alert(data.message);
+                loadTransactions();
+              } else {
+                alert(data.message || 'Kunne ikke kansellere transaksjonen');
+              }
+            } catch (error) {
+              console.error('Error:', error);
+              alert('Det oppstod en feil ved kansellering av transaksjonen');
+            }
+          });
+        });
+      }
+    });
+  </script>
+</body>
+</html>
+art">Nettverksk

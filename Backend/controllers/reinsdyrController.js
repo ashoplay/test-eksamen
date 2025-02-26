@@ -183,19 +183,93 @@ const reinsdyrController = {
   
   getUserReinsdyr: async (req, res) => {
     try {
+      // Pagination parameters
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+      const skip = (page - 1) * limit;
+      
+      // Optional flokk filter
+      const flokkFilter = req.query.flokkId ? { flokk: req.query.flokkId } : {};
+      
       // Find all flokker that belong to user
       const flokker = await Flokk.find({ eier: req.eierId });
       
       if (!flokker || flokker.length === 0) {
-        return res.json([]);
+        return res.json({
+          reinsdyr: [],
+          totalPages: 0,
+          currentPage: page,
+          totalReinsdyr: 0
+        });
       }
       
-      // Get all reinsdyr in those flokker
+      // Get all flokk IDs
       const flokkIds = flokker.map(flokk => flokk._id);
-      const reinsdyr = await Reinsdyr.find({ flokk: { $in: flokkIds } })
-        .populate('flokk');
       
-      res.json(reinsdyr);
+      // Create the query
+      const query = { 
+        flokk: flokkFilter.flokk || { $in: flokkIds }
+      };
+      
+      console.log('Query:', JSON.stringify(query)); // Debug log
+      
+      // Get total count for pagination
+      const totalReinsdyr = await Reinsdyr.countDocuments(query);
+      const totalPages = Math.ceil(totalReinsdyr / limit);
+      
+      // Get all reinsdyr in those flokker with pagination
+      const reinsdyr = await Reinsdyr.find(query)
+        .populate('flokk')
+        .skip(skip)
+        .limit(limit)
+        .sort({ createdAt: -1 });
+      
+      console.log(`Found ${reinsdyr.length} reinsdyr out of ${totalReinsdyr} total`); // Debug log
+      
+      res.json({
+        reinsdyr,
+        totalPages,
+        currentPage: page,
+        totalReinsdyr
+      });
+    } catch (error) {
+      console.error('Error in getUserReinsdyr:', error);
+      res.status(500).json({ message: 'Server error' });
+    }
+  },
+
+  getReinsdyrByFlokk: async (req, res) => {
+    try {
+      const { flokkId } = req.params;
+      
+      // Pagination parameters
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+      const skip = (page - 1) * limit;
+      
+      // Verify flokk exists
+      const flokk = await Flokk.findById(flokkId).populate('eier', 'navn');
+      if (!flokk) {
+        return res.status(404).json({ message: 'Flokken finnes ikke' });
+      }
+      
+      // Count total reinsdyr in this flokk
+      const totalReinsdyr = await Reinsdyr.countDocuments({ flokk: flokkId });
+      const totalPages = Math.ceil(totalReinsdyr / limit);
+      
+      // Get reinsdyr with pagination
+      const reinsdyr = await Reinsdyr.find({ flokk: flokkId })
+        .skip(skip)
+        .limit(limit)
+        .sort({ createdAt: -1 });
+      
+      res.json({
+        reinsdyr,
+        flokk,
+        totalPages,
+        currentPage: page,
+        totalReinsdyr
+      });
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: 'Server error' });

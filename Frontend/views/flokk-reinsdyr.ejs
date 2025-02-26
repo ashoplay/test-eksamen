@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reinsdyr i Flokk - Kukkik Ano</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <style>
+    .pagination {
+      display: flex;
+      list-style: none;
+      padding: 0;
+      margin: 20px 0;
+      justify-content: center;
+    }
+    
+    .pagination li {
+      margin: 0 5px;
+    }
+    
+    .pagination a {
+      display: block;
+      padding: 8px 12px;
+      background-color: #f8f9fa;
+      color: #007bff;
+      border-radius: 4px;
+      text-decoration: none;
+    }
+    
+    .pagination a:hover {
+      background-color: #e9ecef;
+    }
+    
+    .pagination .active a {
+      background-color: #007bff;
+      color: white;
+    }
+    
+    .pagination .disabled a {
+      color: #6c757d;
+      pointer-events: none;
+      cursor: default;
+    }
+    
+    .reinsdyr-select-checkbox {
+      margin-right: 10px;
+    }
+    
+    .bulk-actions {
+      margin-bottom: 20px;
+      padding: 15px;
+      background-color: #f8f9fa;
+      border-radius: 5px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="container">
+      <nav class="navbar">
+        <div class="logo">Kukkik Ano</div>
+        <ul class="nav-links" id="authLinks" style="display: none;">
+          <li><a href="/">Hjem</a></li>
+          <li><a href="/login">Logg inn</a></li>
+          <li><a href="/register">Registrer</a></li>
+          <li><a href="/eiere">Eiere</a></li>
+          <li><a href="/faq">FAQ</a></li>
+          <li><a href="/kart">Kart</a></li>
+          <li><a href="/nettverkskart">Nettverkskart</a></li>
+          <li><a href="/databaseinfo">Database info</a></li>
+        </ul>
+        <ul class="nav-links" id="userLinks">
+          <li><a href="/">Hjem</a></li>
+          <li><a href="/reinsdyr">Mine reinsdyr</a></li>
+          <li><a href="/flokk">Mine flokker</a></li>
+          <li><a href="/transactions">Transaksjoner</a></li>
+          <li><a href="/eiere">Eiere</a></li>
+          <li><a href="/faq">FAQ</a></li>
+          <li><a href="/kart">Kart</a></li>
+          <li><a href="/nettverkskart">Nettverkskart</a></li>
+          <li><a href="/databaseinfo">Database info</a></li>
+          <li><span id="username"></span></li>
+          <li><a href="#" id="logoutBtn">Logg ut</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+  
+  <main class="main">
+    <div class="container">
+      <div id="flokkInfo">
+        <h1 class="page-title">Laster flokkinformasjon...</h1>
+      </div>
+      
+      <div class="bulk-actions" id="bulkActions">
+        <h3>Handlinger for valgte reinsdyr</h3>
+        <div class="form-group">
+          <label for="targetFlokkSelect" class="form-label">Flytt til annen flokk:</label>
+          <select id="targetFlokkSelect" class="form-select">
+            <option value="">Laster flokker...</option>
+          </select>
+        </div>
+        <button id="moveSelectedBtn" class="btn btn-primary">Flytt valgte</button>
+        <button id="cancelBulkBtn" class="btn btn-secondary">Avbryt</button>
+      </div>
+      
+      <div>
+        <label>
+          <input type="checkbox" id="selectAllReinsdyr"> Velg alle
+        </label>
+      </div>
+      
+      <div id="reinsdyrList">
+        <p>Laster reinsdyr...</p>
+      </div>
+      
+      <div id="pagination" class="pagination">
+        <!-- Pagination will be generated here -->
+      </div>
+    </div>
+  </main>
+  
+  <footer class="footer">
+    <div class="container">
+      <p>&copy; 2025 Kukkik Ano - Reinsdyrdatabase</p>
+    </div>
+  </footer>
+  
+  <script src="/js/scripts.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const flokkId = window.location.pathname.split('/')[2];
+      let currentPage = 1;
+      let totalPages = 1;
+      let reinsdyrData = [];
+      
+      // Initial load
+      loadFlokkInfo();
+      loadReinsdyr(currentPage);
+      loadUserFlokkerForTransfer();
+      
+      // Handle bulk selection checkbox
+      const selectAllCheckbox = document.getElementById('selectAllReinsdyr');
+      selectAllCheckbox.addEventListener('change', function() {
+        const checkboxes = document.querySelectorAll('.reinsdyr-select-checkbox');
+        checkboxes.forEach(checkbox => {
+          checkbox.checked = this.checked;
+        });
+        updateBulkActionsVisibility();
+      });
+      
+      // Function to load flokk information
+      async function loadFlokkInfo() {
+        const flokkInfoElement = document.getElementById('flokkInfo');
+        
+        try {
+          const response = await fetch(`/api/flokk/${flokkId}`, {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+          });
+          
+          if (!response.ok) {
+            throw new Error('Kunne ikke laste flokkinfo');
+          }
+          
+          const flokk = await response.json();
+          
+          flokkInfoElement.innerHTML = `
+            <h1 class="page-title">Reinsdyr i flokken "${flokk.navn}"</h1>
+            <p><strong>Serieinndeling:</strong> ${flokk.serieinndeling}</p>
+            <p><strong>Buemerke:</strong> ${flokk.buemerke_navn}</p>
+            <p><strong>Beiteområde:</strong> ${flokk.beiteomrade ? flokk.beiteomrade.navn : 'Ukjent'}</p>
+            <div class="button-group">
+              <a href="/flokk" class="btn btn-secondary">Tilbake til flokker</a>
+              <a href="/reinsdyr" class="btn btn-secondary">Alle mine reinsdyr</a>
+            </div>
+          `;
+        } catch (error) {
+          console.error('Error:', error);
+          flokkInfoElement.innerHTML = '<h1 class="page-title">Feil ved lasting av flokkinfo</h1>';
+        }
+      }
+      
+      // Function to load reinsdyr with pagination
+      async function loadReinsdyr(page) {
+        const reinsdyrListElement = document.getElementById('reinsdyrList');
+        const paginationElement = document.getElementById('pagination');
+        
+        try {
+          const response = await fetch(`/api/reinsdyr/flokk/${flokkId}?page=${page}&limit=10`, {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+          });
+          
+          if (!response.ok) {
+            throw new Error('Kunne ikke laste reinsdyr');
+          }
+          
+          const data = await response.json();
+          reinsdyrData = data.reinsdyr;
+          currentPage = data.currentPage;
+          totalPages = data.totalPages;
+          
+          if (reinsdyrData.length === 0) {
+            reinsdyrListElement.innerHTML = '<p>Ingen reinsdyr funnet i denne flokken.</p>';
+            paginationElement.innerHTML = '';
+            return;
+          }
+          
+          let html = '';
+          
+          reinsdyrData.forEach(reinsdyr => {
+            html += `
+              <div class="card">
+                <div style="display: flex; align-items: flex-start;">
+                  <input type="checkbox" class="reinsdyr-select-checkbox" data-id="${reinsdyr._id}">
+                  <div style="flex-grow: 1;">
+                    <h3 class="card-title">${reinsdyr.navn} (${reinsdyr.serienummer})</h3>
+                    <p><strong>Fødselsdato:</strong> ${new Date(reinsdyr.fodselsdato).toLocaleDateString('no-NO')}</p>
+                    <div class="button-group">
+                      <button class="btn btn-secondary edit-reinsdyr-btn" data-id="${reinsdyr._id}">Rediger</button>
+                      <button class="btn btn-primary transfer-reinsdyr-btn" data-id="${reinsdyr._id}">Overfør til annen eier</button>
+                      <button class="btn btn-danger delete-reinsdyr-btn" data-id="${reinsdyr._id}">Slett</button>
+                    </div>
+                  </div>
+                </div>
+                <div id="edit-reinsdyr-${reinsdyr._id}" class="edit-form" style="display: none; margin-top: 15px;">
+                  <form class="update-reinsdyr-form" data-id="${reinsdyr._id}">
+                    <div class="form-group">
+                      <label class="form-label">Serienummer</label>
+                      <input type="text" name="serienummer" class="form-input" value="${reinsdyr.serienummer}" required>
+                    </div>
+                    <div class="form-group">
+                      <label class="form-label">Navn</label>
+                      <input type="text" name="navn" class="form-input" value="${reinsdyr.navn}" required>
+                    </div>
+                    <div class="form-group">
+                      <label class="form-label">Flokk</label>
+                      <select name="flokkId" class="form-select user-flokk-select" required>
+                        <option value="">Laster flokker...</option>
+                      </select>
+                    </div>
+                    <div class="form-group">
+                      <label class="form-label">Fødselsdato</label>
+                      <input type="date" name="fodselsdato" class="form-input" value="${reinsdyr.fodselsdato.split('T')[0]}" required>
+                    </div>
+                    <div class="form-group">
+                      <button type="submit" class="btn btn-primary">Oppdater</button>
+                      <button type="button" class="btn btn-secondary cancel-edit-btn">Avbryt</button>
+                    </div>
+                  </form>
+                </div>
+                <div id="transfer-reinsdyr-${reinsdyr._id}" class="edit-form" style="display: none; margin-top: 15px;">
+                  <form class="transfer-to-owner-form" data-id="${reinsdyr._id}">
+                    <div class="form-group">
+                      <label class="form-label">Overfør til eier (e-post)</label>
+                      <input type="email" name="toEierEmail" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                      <button type="submit" class="btn btn-primary">Start overføring</button>
+                      <button type="button" class="btn btn-secondary cancel-transfer-btn">Avbryt</button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            `;
+          });
+          
+          reinsdyrListElement.innerHTML = html;
+          
+          // Generate pagination
+          let paginationHtml = '';
+          if (totalPages > 1) {
+            paginationHtml += '<ul>';
+            
+            // Previous button
+            if (currentPage > 1) {
+              paginationHtml += `<li><a href="#" data-page="${currentPage - 1}">«</a></li>`;
+            } else {
+              paginationHtml += '<li class="disabled"><a href="#">«</a></li>';
+            }
+            
+            // Page buttons
+            for (let i = 1; i <= totalPages; i++) {
+              if (i === currentPage) {
+                paginationHtml += `<li class="active"><a href="#">${i}</a></li>`;
+              } else {
+                paginationHtml += `<li><a href="#" data-page="${i}">${i}</a></li>`;
+              }
+            }
+            
+            // Next button
+            if (currentPage < totalPages) {
+              paginationHtml += `<li><a href="#" data-page="${currentPage + 1}">»</a></li>`;
+            } else {
+              paginationHtml += '<li class="disabled"><a href="#">»</a></li>';
+            }
+            
+            paginationHtml += '</ul>';
+          }
+          
+          paginationElement.innerHTML = paginationHtml;
+          
+          // Add event listeners to pagination links
+          document.querySelectorAll('#pagination a[data-page]').forEach(link => {
+            link.addEventListener('click', function(e) {
+              e.preventDefault();
+              const page = parseInt(this.getAttribute('data-page'));
+              loadReinsdyr(page);
+            });
+          });
+          
+          // Setup edit buttons
+          document.querySelectorAll('.edit-reinsdyr-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+              const id = this.getAttribute('data-id');
+              document.getElementById(`edit-reinsdyr-${id}`).style.display = 'block';
+              this.style.display = 'none';
+              
+              // Load flokker into select
+              const select = document.querySelector(`#edit-reinsdyr-${id} .user-flokk-select`);
+              loadUserFlokkSelect(select, id);
+            });
+          });
+          
+          // Setup transfer buttons
+          document.querySelectorAll('.transfer-reinsdyr-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+              const id = this.getAttribute('data-id');
+              document.getElementById(`transfer-reinsdyr-${id}`).style.display = 'block';
+              this.style.display = 'none';
+            });
+          });
+          
+          // Setup cancel buttons
+          document.querySelectorAll('.cancel-edit-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+              const form = this.closest('.edit-form');
+              form.style.display = 'none';
+              form.previousElementSibling.querySelector('.edit-reinsdyr-btn').style.display = 'inline-block';
+            });
+          });
+          
+          document.querySelectorAll('.cancel-transfer-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+              const form = this.closest('.edit-form');
+              form.style.display = 'none';
+              form.previousElementSibling.querySelector('.transfer-reinsdyr-btn').style.display = 'inline-block';
+            });
+          });
+          
+          // Setup transfer forms
+          document.querySelectorAll('.transfer-to-owner-form').forEach(form => {
+            form.addEventListener('submit', async function(e) {
+              e.preventDefault();
+              
+              const id = this.getAttribute('data-id');
+              const toEierEmail = this.querySelector('input[name="toEierEmail"]').value;
+              
+              try {
+                const response = await fetch('/api/transaction', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                  },
+                  body: JSON.stringify({
+                    reinsdyrId: id,
+                    toEierEmail
+                  })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                  alert(data.message);
+                  this.reset();
+                  document.getElementById(`transfer-reinsdyr-${id}`).style.display = 'none';
+                  document.querySelector(`.transfer-reinsdyr-btn[data-id="${id}"]`).style.display = 'inline-block';
+                } else {
+                  alert(data.message || 'Det oppstod en feil under overføringen');
+                }
+              } catch (error) {
+                console.error('Error:', error);
+                alert('Det oppstod en feil under overføringen');
+              }
+            });
+          });
+          
+          // Setup delete buttons
+          document.querySelectorAll('.delete-reinsdyr-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+              const id = this.getAttribute('data-id');
+              if (confirm('Er du sikker på at du vil slette dette reinsdyret?')) {
+                deleteReinsdyr(id);
+              }
+            });
+          });
+          
+          // Setup update forms
+          document.querySelectorAll('.update-reinsdyr-form').forEach(form => {
+            form.addEventListener('submit', function(e) {
+              e.preventDefault();
+              
+              const id = this.getAttribute('data-id');
+              const serienummer = this.querySelector('input[name="serienummer"]').value;
+              const navn = this.querySelector('input[name="navn"]').value;
+              const flokkId = this.querySelector('select[name="flokkId"]').value;
+              const fodselsdato = this.querySelector('input[name="fodselsdato"]').value;
+              
+              updateReinsdyr(id, serienummer, navn, flokkId, fodselsdato);
+            });
+          });
+          
+          // Setup selection checkboxes
+          document.querySelectorAll('.reinsdyr-select-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+              updateBulkActionsVisibility();
+            });
+          });
+        } catch (error) {
+          console.error('Error:', error);
+          reinsdyrListElement.innerHTML = '<p class="alert alert-danger">Det oppstod en feil under lasting av reinsdyr.</p>';
+        }
+      }
+      
+      // Update visibility of bulk actions based on selection
+      function updateBulkActionsVisibility() {
+        const bulkActionsElement = document.getElementById('bulkActions');
+        const checkboxes = document.querySelectorAll('.reinsdyr-select-checkbox:checked');
+        
+        if (checkboxes.length > 0) {
+          bulkActionsElement.style.display = 'block';
+        } else {
+          bulkActionsElement.style.display = 'none';
+        }
+      }
+      
+      // Load user flokker for the bulk transfer dropdown
+      async function loadUserFlokkerForTransfer() {
+        const targetFlokkSelect = document.getElementById('targetFlokkSelect');
+        
+        try {
+          const response = await fetch('/api/flokk/my', {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+          });
+          
+          if (!response.ok) {
+            throw new Error('Kunne ikke laste flokker');
+          }
+          
+          const flokker = await response.json();
+          
+          if (flokker.length === 0) {
+            targetFlokkSelect.innerHTML = '<option value="">Ingen flokker tilgjengelig</option>';
+            return;
+          }
+          
+          let html = '<option value="">Velg målflokk</option>';
+          
+          flokker.forEach(flokk => {
+            if (flokk._id !== flokkId) {
+              html += `<option value="${flokk._id}">${flokk.navn}</option>`;
+            }
+          });
+          
+          targetFlokkSelect.innerHTML = html;
+        } catch (error) {
+          console.error('Error:', error);
+          targetFlokkSelect.innerHTML = '<option value="">Feil ved lasting av flokker</option>';
+        }
+      }
+      
+      // Function to delete a reinsdyr
+      async function deleteReinsdyr(id) {
+        try {
+          const response = await fetch(`/api/reinsdyr/${id}`, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+          });
+          
+          if (response.ok) {
+            loadReinsdyr(currentPage);
+            alert('Reinsdyr slettet');
+          } else {
+            const data = await response.json();
+            alert(data.message || 'Kunne ikke slette reinsdyr');
+          }
+        } catch (error) {
+          console.error('Error:', error);
+          alert('Det oppstod en feil under sletting av reinsdyr');
+        }
+      }
+      
+      // Function to update a reinsdyr
+      async function updateReinsdyr(id, serienummer, navn, flokkId, fodselsdato) {
+        try {
+          const response = await fetch(`/api/reinsdyr/${id}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: JSON.stringify({
+              serienummer,
+              navn,
+              flokkId,
+              fodselsdato
+            })
+          });
+          
+          if (response.ok) {
+            // If the flokk has changed and is not the current flokk, reload the page
+            if (flokkId !== flokkId) {
+              alert('Reinsdyr flyttet til annen flokk');
+              loadReinsdyr(currentPage);
+            } else {
+              document.getElementById(`edit-reinsdyr-${id}`).style.display = 'none';
+              document.querySelector(`.edit-reinsdyr-btn[data-id="${id}"]`).style.display = 'inline-block';
+              loadReinsdyr(currentPage);
+              alert('Reinsdyr oppdatert');
+            }
+          } else {
+            const data = await response.json();
+            alert(data.message || 'Kunne ikke oppdatere reinsdyr');
+          }
+        } catch (error) {
+          console.error('Error:', error);
+          alert('Det oppstod en feil under oppdatering av reinsdyr');
+        }
+      }
+      
+      // Setup bulk transfer
+      document.getElementById('moveSelectedBtn').addEventListener('click', async function() {
+        const targetFlokkId = document.getElementById('targetFlokkSelect').value;
+        
+        if (!targetFlokkId) {
+          alert('Velg en målflokk');
+          return;
+        }
+        
+        const selectedReinsdyr = Array.from(document.querySelectorAll('.reinsdyr-select-checkbox:checked'))
+          .map(checkbox => checkbox.getAttribute('data-id'));
+        
+        if (selectedReinsdyr.length === 0) {
+          alert('Ingen reinsdyr valgt');
+          return;
+        }
+        
+        if (confirm(`Er du sikker på at du vil flytte ${selectedReinsdyr.length} reinsdyr til en annen flokk?`)) {
+          try {
+            let successCount = 0;
+            let failCount = 0;
+            
+            for (const reinsdyrId of selectedReinsdyr) {
+              const response = await fetch('/api/transaction/transfer-internal', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify({
+                  reinsdyrId,
+                  targetFlokkId
+                })
+              });
+              
+              if (response.ok) {
+                successCount++;
+              } else {
+                failCount++;
+              }
+            }
+            
+            alert(`Overføring komplett: ${successCount} vellykket, ${failCount} feilet`);
+            document.getElementById('bulkActions').style.display = 'none';
+            document.getElementById('selectAllReinsdyr').checked = false;
+            loadReinsdyr(currentPage);
+          } catch (error) {
+            console.error('Error:', error);
+            alert('Det oppstod en feil under masseoverføring');
+          }
+        }
+      });
+      
+      // Setup cancel bulk action
+      document.getElementById('cancelBulkBtn').addEventListener('click', function() {
+        document.getElementById('bulkActions').style.display = 'none';
+        document.getElementById('selectAllReinsdyr').checked = false;
+        document.querySelectorAll('.reinsdyr-select-checkbox').forEach(checkbox => {
+          checkbox.checked = false;
+        });
+      });
+    });
+  </script>
+</body>
+</html>

@@ -10,6 +10,7 @@ const reinsdyrRoutes = require('./routes/reinsdyrRoutes');
 const eierRoutes = require('./routes/eierRoutes');
 const beiteomradeRoutes = require('./routes/beiteomradeRoutes');
 const flokkRoutes = require('./routes/flokkRoutes');
+const transactionRoutes = require('./routes/transactionRoutes');
 
 // Load environment variables
 dotenv.config();
@@ -78,6 +79,13 @@ app.get('/kart', (req, res) => {
 app.get('/databaseinfo', (req, res) => {
   res.render('databaseinfo');
 });
+app.get('/flokk/:id/reinsdyr', (req, res) => {
+  res.render('flokk-reinsdyr');
+});
+
+app.get('/transactions', (req, res) => {
+  res.render('transactions');
+});
 
 // API routes
 app.use('/api/auth', authRoutes);
@@ -85,6 +93,7 @@ app.use('/api/reinsdyr', reinsdyrRoutes);
 app.use('/api/eier', eierRoutes);
 app.use('/api/beiteomrade', beiteomradeRoutes);
 app.use('/api/flokk', flokkRoutes);
+app.use('/api/transaction', transactionRoutes);
 
 // Start server
 const PORT = process.env.PORT || 5000;

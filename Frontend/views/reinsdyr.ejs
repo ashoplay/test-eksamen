@@ -82,6 +82,12 @@
       <div id="reinsdyrList">
         <p>Laster reinsdyr...</p>
       </div>
+      
+      <!-- Debug information -->
+      <div id="debugInfo" style="margin-top: 20px; padding: 10px; background-color: #f8f9fa; border: 1px solid #ddd; border-radius: 5px; display: none;">
+        <h3>Debug Information</h3>
+        <div id="debugContent"></div>
+      </div>
     </div>
   </main>
   
@@ -92,5 +98,39 @@
   </footer>
   
   <script src="/js/scripts.js"></script>
+  <script src="/js/debug.js"></script>
+  <script>
+    // Additional debug for this page
+    document.addEventListener('DOMContentLoaded', function() {
+      const reinsdyrList = document.getElementById('reinsdyrList');
+      const debugContent = document.getElementById('debugContent');
+      
+      if (reinsdyrList && debugContent) {
+        // Check for token
+        const token = localStorage.getItem('token');
+        if (!token) {
+          debugContent.innerHTML += '<p>No token found in localStorage</p>';
+        } else {
+          debugContent.innerHTML += '<p>Token found in localStorage</p>';
+        }
+        
+        // Manual API call to verify data
+        fetch('/api/reinsdyr/my', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
+        .then(response => response.json())
+        .then(data => {
+          debugContent.innerHTML += `<p>Manual API call result:</p>
+            <pre>${JSON.stringify(data, null, 2)}</pre>`;
+        })
+        .catch(error => {
+          debugContent.innerHTML += `<p>Error in manual API call:</p>
+            <pre>${error.message}</pre>`;
+        });
+      }
+    });
+  </script>
 </body>
 </html>

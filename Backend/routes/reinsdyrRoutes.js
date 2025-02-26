@@ -10,5 +10,6 @@ router.get('/my', protect, owner, reinsdyrController.getUserReinsdyr);
 router.get('/:id', reinsdyrController.getReinsdyrById);
 router.put('/:id', protect, owner, reinsdyrController.updateReinsdyr);
 router.delete('/:id', protect, owner, reinsdyrController.deleteReinsdyr);
+router.get('/flokk/:flokkId', reinsdyrController.getReinsdyrByFlokk);
 
 module.exports = router;
