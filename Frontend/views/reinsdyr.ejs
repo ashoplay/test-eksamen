@@ -25,8 +25,10 @@
           <li><a href="/reinsdyr">Mine reinsdyr</a></li>
           <li><a href="/flokk">Mine flokker</a></li>
           <li><a href="/eiere">Eiere</a></li>
+          <li><a href="/transactions">Transaksjoner</a></li>
           <li><a href="/faq">FAQ</a></li>
           <li><a href="/kart">Kart</a></li>
+          <li><a href="/nettverkskart">Nettverkskart</a></li>
           <li><a href="/databaseinfo">Database info</a></li>
           <li><span id="username"></span></li>
           <li><a href="#" id="logoutBtn">Logg ut</a></li>
@@ -120,7 +122,10 @@
             'Authorization': `Bearer ${token}`
           }
         })
-        .then(response => response.json())
+        .then(response => {
+          console.log('Response status:', response.status);
+          return response.json();
+        })
         .then(data => {
           debugContent.innerHTML += `<p>Manual API call result:</p>
             <pre>${JSON.stringify(data, null, 2)}</pre>`;

@@ -183,22 +183,14 @@ const reinsdyrController = {
   
   getUserReinsdyr: async (req, res) => {
     try {
-      // Pagination parameters
-      const page = parseInt(req.query.page) || 1;
-      const limit = parseInt(req.query.limit) || 10;
-      const skip = (page - 1) * limit;
-      
-      // Optional flokk filter
-      const flokkFilter = req.query.flokkId ? { flokk: req.query.flokkId } : {};
-      
       // Find all flokker that belong to user
       const flokker = await Flokk.find({ eier: req.eierId });
       
       if (!flokker || flokker.length === 0) {
         return res.json({
           reinsdyr: [],
-          totalPages: 0,
-          currentPage: page,
+          totalPages: 1,
+          currentPage: 1,
           totalReinsdyr: 0
         });
       }
@@ -208,33 +200,31 @@ const reinsdyrController = {
       
       // Create the query
       const query = { 
-        flokk: flokkFilter.flokk || { $in: flokkIds }
+        flokk: { $in: flokkIds }
       };
       
-      console.log('Query:', JSON.stringify(query)); // Debug log
+      console.log('getUserReinsdyr - Query:', JSON.stringify(query)); 
+      console.log('getUserReinsdyr - User ID:', req.eierId);
       
-      // Get total count for pagination
-      const totalReinsdyr = await Reinsdyr.countDocuments(query);
-      const totalPages = Math.ceil(totalReinsdyr / limit);
-      
-      // Get all reinsdyr in those flokker with pagination
+      // Get all reinsdyr in those flokker
       const reinsdyr = await Reinsdyr.find(query)
         .populate('flokk')
-        .skip(skip)
-        .limit(limit)
         .sort({ createdAt: -1 });
       
-      console.log(`Found ${reinsdyr.length} reinsdyr out of ${totalReinsdyr} total`); // Debug log
+      console.log(`getUserReinsdyr - Found ${reinsdyr.length} reinsdyr`);
       
       res.json({
         reinsdyr,
-        totalPages,
-        currentPage: page,
-        totalReinsdyr
+        totalPages: 1,
+        currentPage: 1,
+        totalReinsdyr: reinsdyr.length
       });
     } catch (error) {
       console.error('Error in getUserReinsdyr:', error);
-      res.status(500).json({ message: 'Server error' });
+      res.status(500).json({ 
+        message: 'Server error', 
+        errorDetails: error.message 
+      });
     }
   },
 

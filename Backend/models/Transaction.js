@@ -16,6 +16,10 @@ const TransactionSchema = new mongoose.Schema({
     ref: 'Eier',
     required: true
   },
+  offerText: {
+    type: String,
+    required: true
+  },
   status: {
     type: String,
     enum: ['pending', 'accepted_by_receiver', 'rejected_by_receiver', 'confirmed', 'cancelled'],

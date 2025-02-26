@@ -7,71 +7,74 @@ const transactionController = {
   // Create a new transaction
   createTransaction: async (req, res) => {
     try {
-      const { reinsdyrId, toEierEmail } = req.body;
-
+      const { reinsdyrId, toEierEmail, offerText } = req.body;
+  
       // Validate inputs
-      if (!reinsdyrId || !toEierEmail) {
-        return res.status(400).json({ message: 'Reinsdyr ID og mottakers e-post er påkrevd' });
+      if (!reinsdyrId || !toEierEmail || !offerText) {
+        return res.status(400).json({ message: 'Reinsdyr ID, mottakers e-post og tilbud er påkrevd' });
       }
-
-      // Find the reinsdyr
-      const reinsdyr = await Reinsdyr.findById(reinsdyrId).populate('flokk');
-      if (!reinsdyr) {
-        return res.status(404).json({ message: 'Reinsdyret finnes ikke' });
+  
+      // Find the current user (sender)
+      const fromEier = await Eier.findById(req.eierId);
+      if (!fromEier) {
+        return res.status(404).json({ message: 'Avsender ikke funnet' });
       }
-
-      // Verify the current user owns the reinsdyr
-      const flokk = await Flokk.findById(reinsdyr.flokk);
-      if (!flokk) {
-        return res.status(404).json({ message: 'Flokken finnes ikke' });
-      }
-
-      if (flokk.eier.toString() !== req.eierId.toString()) {
-        return res.status(401).json({ message: 'Du kan bare overføre dine egne reinsdyr' });
-      }
-
+  
       // Find the recipient by email
       const toEier = await Eier.findOne({ epost: toEierEmail });
       if (!toEier) {
         return res.status(404).json({ message: 'Mottaker finnes ikke' });
       }
-
-      // Cannot transfer to self
-      if (toEier._id.toString() === req.eierId.toString()) {
-        return res.status(400).json({ message: 'Du kan ikke overføre til deg selv. Bruk intern overføring for å flytte reinsdyr mellom egne flokker.' });
+  
+      // Find the reinsdyr
+      const reinsdyr = await Reinsdyr.findById(reinsdyrId).populate('flokk');
+      if (!reinsdyr) {
+        return res.status(404).json({ message: 'Reinsdyret finnes ikke' });
       }
-
+  
+      // Prevent sending to self
+      if (toEier._id.toString() === fromEier._id.toString()) {
+        return res.status(400).json({ message: 'Du kan ikke sende en transaksjon til deg selv' });
+      }
+  
       // Check if there's already a pending transaction for this reindeer
       const existingTransaction = await Transaction.findOne({ 
         reinsdyr: reinsdyrId, 
         status: { $in: ['pending', 'accepted_by_receiver'] }
       });
-
+  
       if (existingTransaction) {
         return res.status(400).json({ message: 'Det finnes allerede en aktiv transaksjon for dette reinsdyret' });
       }
-
+  
       // Create the transaction
       const newTransaction = new Transaction({
         reinsdyr: reinsdyrId,
-        fromEier: req.eierId,
+        fromEier: fromEier._id,
         toEier: toEier._id,
+        offerText: offerText,
         status: 'pending'
       });
-
+  
+      // Populate the transaction before saving to ensure all details are correct
       await newTransaction.save();
-
+      await newTransaction.populate([
+        { path: 'fromEier', select: 'navn epost' },
+        { path: 'toEier', select: 'navn epost' },
+        { path: 'reinsdyr', select: 'navn serienummer fodselsdato' }
+      ]);
+  
       res.status(201).json({ 
-        message: 'Transaksjonen er opprettet. Venter på godkjenning fra mottaker.',
-        transaction: newTransaction
+        message: 'Transaksjonsforespørsel sendt', 
+        transaction: newTransaction 
       });
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: 'Server error' });
     }
   },
-
-  // Get all transactions for the current user (both as sender and receiver)
+  
+  // Ensure getUserTransactions method retrieves transactions for both sent and received
   getUserTransactions: async (req, res) => {
     try {
       const transactions = await Transaction.find({
@@ -83,8 +86,8 @@ const transactionController = {
       .populate('reinsdyr')
       .populate('fromEier', 'navn epost')
       .populate('toEier', 'navn epost')
-      .sort('-createdAt');
-
+      .sort({ createdAt: -1 });
+  
       res.json(transactions);
     } catch (error) {
       console.error(error);

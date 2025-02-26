@@ -48,7 +48,9 @@ async function loadBeiteomradeSelect(selectElement, flokkId = null) {
     console.error('Error:', error);
     selectElement.innerHTML = '<option value="">Kunne ikke laste beiteområder</option>';
   }
-}// Load user flokk into a select element
+}
+
+// Load user flokk into a select element
 async function loadUserFlokkSelect(selectElement, reinsdyrId = null) {
   if (!selectElement || !isLoggedIn()) {
     return;
@@ -102,13 +104,19 @@ async function loadUserFlokkSelect(selectElement, reinsdyrId = null) {
     console.error('Error:', error);
     selectElement.innerHTML = '<option value="">Kunne ikke laste flokker</option>';
   }
-}// Load user's reinsdyr
+}
+
+// Load user's reinsdyr
 async function loadUserReinsdyr() {
   const reinsdyrList = document.getElementById('reinsdyrList');
   
   if (!reinsdyrList || !isLoggedIn()) {
+    console.log('Reinsdyr list not found or user not logged in');
     return;
   }
+  
+  // Add debug logging
+  console.log('Token:', localStorage.getItem('token'));
   
   try {
     const response = await fetch('/api/reinsdyr/my', {
@@ -118,19 +126,54 @@ async function loadUserReinsdyr() {
     });
     
     if (!response.ok) {
-      throw new Error('Kunne ikke laste reinsdyr');
+      const errorText = await response.text();
+      console.error('Error response:', response.status, errorText);
+      
+      // More detailed error display
+      reinsdyrList.innerHTML = `
+        <div class="alert alert-danger">
+          <p>Feil ved lasting av reinsdyr:</p>
+          <p>Status: ${response.status}</p>
+          <p>Melding: ${errorText}</p>
+        </div>
+      `;
+      return;
     }
     
     const data = await response.json();
     
-    if (data.length === 0) {
+    console.log('Raw data type:', typeof data);
+    console.log('Raw data:', JSON.stringify(data, null, 2));
+
+    // Determine how to extract reinsdyr
+    let reinsdyr;
+    if (Array.isArray(data)) {
+      reinsdyr = data;
+    } else if (data.reinsdyr && Array.isArray(data.reinsdyr)) {
+      reinsdyr = data.reinsdyr;
+    } else if (data.data && Array.isArray(data.data)) {
+      reinsdyr = data.data;
+    } else {
+      console.error('Unable to extract reinsdyr array from response');
+      reinsdyrList.innerHTML = `
+        <div class="alert alert-danger">
+          <p>Kunne ikke hente reinsdyr. Uventet dataformat.</p>
+          <pre>${JSON.stringify(data, null, 2)}</pre>
+        </div>
+      `;
+      return;
+    }
+    
+    console.log('Processed reinsdyr:', reinsdyr);
+    
+    if (reinsdyr.length === 0) {
       reinsdyrList.innerHTML = '<p>Du har ingen registrerte reinsdyr.</p>';
       return;
     }
     
     let html = '';
     
-    data.forEach(reinsdyr => {
+    reinsdyr.forEach(reinsdyr => {
       html += `
         <div class="card">
           <h3 class="card-title">${reinsdyr.navn} (${reinsdyr.serienummer})</h3>
@@ -140,135 +183,84 @@ async function loadUserReinsdyr() {
             <button class="btn btn-secondary edit-reinsdyr-btn" data-id="${reinsdyr._id}">Rediger</button>
             <button class="btn btn-danger delete-reinsdyr-btn" data-id="${reinsdyr._id}">Slett</button>
           </div>
-          <div id="edit-reinsdyr-${reinsdyr._id}" class="edit-form" style="display: none; margin-top: 15px;">
-            <form class="update-reinsdyr-form" data-id="${reinsdyr._id}">
-              <div class="form-group">
-                <label class="form-label">Serienummer</label>
-                <input type="text" name="serienummer" class="form-input" value="${reinsdyr.serienummer}" required>
-              </div>
-              <div class="form-group">
-                <label class="form-label">Navn</label>
-                <input type="text" name="navn" class="form-input" value="${reinsdyr.navn}" required>
-              </div>
-              <div class="form-group">
-                <label class="form-label">Flokk</label>
-                <select name="flokkId" class="form-select user-flokk-select" required>
-                  <option value="">Laster flokker...</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label class="form-label">Fødselsdato</label>
-                <input type="date" name="fodselsdato" class="form-input" value="${reinsdyr.fodselsdato.split('T')[0]}" required>
-              </div>
-              <div class="form-group">
-                <button type="submit" class="btn btn-primary">Oppdater</button>
-                <button type="button" class="btn btn-secondary cancel-edit-btn">Avbryt</button>
-              </div>
-            </form>
-          </div>
         </div>
       `;
     });
     
     reinsdyrList.innerHTML = html;
     
-    // Setup edit buttons
-    document.querySelectorAll('.edit-reinsdyr-btn').forEach(btn => {
-      btn.addEventListener('click', function() {
-        const id = this.getAttribute('data-id');
-        document.getElementById(`edit-reinsdyr-${id}`).style.display = 'block';
+    // Add error catching to button setup
+    try {
+      setupReinsdyrButtons();
+    } catch (buttonError) {
+      console.error('Error setting up reinsdyr buttons:', buttonError);
+    }
+  } catch (error) {
+    console.error('Completely unexpected error:', error);
+    reinsdyrList.innerHTML = `
+      <div class="alert alert-danger">
+        <p>En kritisk feil oppstod:</p>
+        <p>${error.message}</p>
+        <pre>${error.stack}</pre>
+      </div>
+    `;
+  }
+}
+
+function setupReinsdyrButtons() {
+  // Edit button setup
+  document.querySelectorAll('.edit-reinsdyr-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const id = this.getAttribute('data-id');
+      const editForm = document.getElementById(`edit-reinsdyr-${id}`);
+      
+      if (editForm) {
+        editForm.style.display = 'block';
         this.style.display = 'none';
         
         // Load flokker into select
-        const select = document.querySelector(`#edit-reinsdyr-${id} .user-flokk-select`);
-        loadUserFlokkSelect(select, id);
-      });
+        const select = editForm.querySelector('.user-flokk-select');
+        if (select) {
+          loadUserFlokkSelect(select, id);
+        }
+      }
     });
-    
-    // Setup cancel buttons
-    document.querySelectorAll('.cancel-edit-btn').forEach(btn => {
-      btn.addEventListener('click', function() {
-        const form = this.closest('.edit-form');
-        form.style.display = 'none';
-        form.previousElementSibling.querySelector('.edit-reinsdyr-btn').style.display = 'inline-block';
-      });
-    });
-    
-    // Setup update forms
-    document.querySelectorAll('.update-reinsdyr-form').forEach(form => {
-      form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        
-        const id = this.getAttribute('data-id');
-        const serienummer = this.querySelector('input[name="serienummer"]').value;
-        const navn = this.querySelector('input[name="navn"]').value;
-        const flokkId = this.querySelector('select[name="flokkId"]').value;
-        const fodselsdato = this.querySelector('input[name="fodselsdato"]').value;
-        
-        try {
-          const response = await fetch(`/api/reinsdyr/${id}`, {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${localStorage.getItem('token')}`
-            },
-            body: JSON.stringify({
-              serienummer,
-              navn,
-              flokkId,
-              fodselsdato
-            })
-          });
-          
-          if (!response.ok) {
-            throw new Error('Kunne ikke oppdatere reinsdyr');
+  });
+  
+  // Delete button setup
+  document.querySelectorAll('.delete-reinsdyr-btn').forEach(btn => {
+    btn.addEventListener('click', async function() {
+      if (!confirm('Er du sikker på at du vil slette dette reinsdyret?')) {
+        return;
+      }
+      
+      const id = this.getAttribute('data-id');
+      
+      try {
+        const response = await fetch(`/api/reinsdyr/${id}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
           }
-          
-          // Reload reinsdyr list
-          loadUserReinsdyr();
-          
-        } catch (error) {
-          console.error('Error:', error);
-          alert('Det oppstod en feil under oppdatering av reinsdyr');
-        }
-      });
-    });
-    
-    // Setup delete buttons
-    document.querySelectorAll('.delete-reinsdyr-btn').forEach(btn => {
-      btn.addEventListener('click', async function() {
-        if (!confirm('Er du sikker på at du vil slette dette reinsdyret?')) {
-          return;
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Kunne ikke slette reinsdyr: ${errorText}`);
         }
         
-        const id = this.getAttribute('data-id');
+        // Reload reinsdyr list
+        loadUserReinsdyr();
         
-        try {
-          const response = await fetch(`/api/reinsdyr/${id}`, {
-            method: 'DELETE',
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('token')}`
-            }
-          });
-          
-          if (!response.ok) {
-            throw new Error('Kunne ikke slette reinsdyr');
-          }
-          
-          // Reload reinsdyr list
-          loadUserReinsdyr();
-          
-        } catch (error) {
-          console.error('Error:', error);
-          alert('Det oppstod en feil under sletting av reinsdyr');
-        }
-      });
+      } catch (error) {
+        console.error('Error:', error);
+        alert(error.message || 'Det oppstod en feil under sletting av reinsdyr');
+      }
     });
-  } catch (error) {
-    console.error('Error:', error);
-    reinsdyrList.innerHTML = '<p class="alert alert-danger">Det oppstod en feil under lasting av reinsdyr. Vennligst prøv igjen.</p>';
-  }
-}// Check if user is logged in
+  });
+}
+
+// Check if user is logged in
 function isLoggedIn() {
   return localStorage.getItem('token') !== null;
 }
@@ -379,6 +371,7 @@ function displayResults(data) {
   
   data.forEach(reinsdyr => {
     const eier = reinsdyr.flokk && reinsdyr.flokk.eier ? reinsdyr.flokk.eier : null;
+    const currentUser = getUserData();
     
     html += `
       <div class="result-item">
@@ -387,20 +380,76 @@ function displayResults(data) {
         <p class="result-info"><strong>Eier:</strong> ${eier ? `<a href="/eiere/${eier._id}">${eier.navn}</a>` : 'Ukjent'}</p>
         ${eier ? `<p class="result-info"><strong>Eier kontakt:</strong> ${eier.epost}, ${eier.telefonnummer}</p>` : ''}
         <p class="result-info"><strong>Fødselsdato:</strong> ${new Date(reinsdyr.fodselsdato).toLocaleDateString('no-NO')}</p>
+        
+        ${// Only show trade button if there's a different owner
+          eier && currentUser && eier._id !== currentUser.eierId ? `
+          <div class="result-actions">
+            <button class="btn btn-primary trade-reinsdyr-btn" 
+                    data-id="${reinsdyr._id}" 
+                    data-eier-email="${eier.epost}">
+              Start handel
+            </button>
+          </div>` : ''
+        }
       </div>
     `;
   });
   
   resultsContainer.innerHTML = html;
+  
+  // Add event listeners for trade buttons
+  document.querySelectorAll('.trade-reinsdyr-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const reinsdyrId = this.getAttribute('data-id');
+      const toEierEmail = this.getAttribute('data-eier-email');
+      
+      // Create a modal or prompt for offer text
+      const offerText = prompt('Skriv inn ditt handelstilbud:');
+      
+      if (offerText && offerText.trim()) {
+        fetch('/api/transaction', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          },
+          body: JSON.stringify({
+            reinsdyrId,
+            toEierEmail,
+            offerText: offerText.trim()
+          })
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.message) {
+            alert('Handelstilbud sendt!');
+            window.location.href = '/transactions';
+          } else {
+            alert('Kunne ikke sende handelstilbud');
+          }
+        })
+        .catch(error => {
+          console.error('Error:', error);
+          alert('Det oppstod en feil ved handel');
+        });
+      } else {
+        alert('Vennligst skriv et handelstilbud');
+      }
+    });
+  });
 }
 
-// Load user's reinsdyr
+// Load user's reinsdyr list
 async function loadUserReinsdyr() {
   const reinsdyrList = document.getElementById('reinsdyrList');
   
   if (!reinsdyrList || !isLoggedIn()) {
+    console.log('Reinsdyr list not found or user not logged in');
     return;
   }
+  
+  // Add debug logging
+  console.log('Token:', localStorage.getItem('token'));
   
   try {
     const response = await fetch('/api/reinsdyr/my', {
@@ -410,36 +459,72 @@ async function loadUserReinsdyr() {
     });
     
     if (!response.ok) {
-      throw new Error('Kunne ikke laste reinsdyr');
+      const errorText = await response.text();
+      console.error('Error response:', response.status, errorText);
+      
+      // More detailed error display
+      reinsdyrList.innerHTML = `
+        <div class="alert alert-danger">
+          <p>Feil ved lasting av reinsdyr:</p>
+          <p>Status: ${response.status}</p>
+          <p>Melding: ${errorText}</p>
+        </div>
+      `;
+      return;
     }
     
     const data = await response.json();
     
-    if (data.length === 0) {
+    console.log('Raw data:', data);
+
+    // Extract reinsdyr from the response
+    const reinsdyr = data.reinsdyr || [];
+    
+    console.log('Processed reinsdyr:', reinsdyr);
+    
+    if (reinsdyr.length === 0) {
       reinsdyrList.innerHTML = '<p>Du har ingen registrerte reinsdyr.</p>';
       return;
     }
     
     let html = '';
     
-    data.forEach(reinsdyr => {
+    // Use standard for loop instead of forEach
+    for (let i = 0; i < reinsdyr.length; i++) {
+      const r = reinsdyr[i];
       html += `
         <div class="card">
-          <h3 class="card-title">${reinsdyr.navn} (${reinsdyr.serienummer})</h3>
-          <p><strong>Flokk:</strong> ${reinsdyr.flokk ? reinsdyr.flokk.navn : 'Ukjent'}</p>
-          <p><strong>Fødselsdato:</strong> ${new Date(reinsdyr.fodselsdato).toLocaleDateString('no-NO')}</p>
+          <h3 class="card-title">${r.navn} (${r.serienummer})</h3>
+          <p><strong>Flokk:</strong> ${r.flokk ? r.flokk.navn : 'Ukjent'}</p>
+          <p><strong>Fødselsdato:</strong> ${new Date(r.fodselsdato).toLocaleDateString('no-NO')}</p>
+          <div class="button-group">
+            <button class="btn btn-secondary edit-reinsdyr-btn" data-id="${r._id}">Rediger</button>
+            <button class="btn btn-danger delete-reinsdyr-btn" data-id="${r._id}">Slett</button>
+          </div>
         </div>
       `;
-    });
+    }
     
     reinsdyrList.innerHTML = html;
+    
+    // Add error catching to button setup
+    try {
+      setupReinsdyrButtons();
+    } catch (buttonError) {
+      console.error('Error setting up reinsdyr buttons:', buttonError);
+    }
   } catch (error) {
-    console.error('Error:', error);
-    reinsdyrList.innerHTML = '<p class="alert alert-danger">Det oppstod en feil under lasting av reinsdyr. Vennligst prøv igjen.</p>';
+    console.error('Completely unexpected error:', error);
+    reinsdyrList.innerHTML = `
+      <div class="alert alert-danger">
+        <p>En kritisk feil oppstod:</p>
+        <p>${error.message}</p>
+        <pre>${error.stack}</pre>
+      </div>
+    `;
   }
 }
 
-// Load user's flokker
 async function loadUserFlokker() {
   const flokkSelect = document.getElementById('flokkId');
   const flokkList = document.getElementById('flokkList');
@@ -837,93 +922,94 @@ function setupForms() {
   // New Reinsdyr form
   const reinsdyrForm = document.getElementById('reinsdyrForm');
   
-  if (reinsdyrForm) {
-    reinsdyrForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      
-      const serienummer = document.getElementById('serienummer').value;
-      const navn = document.getElementById('navn').value;
-      const flokkId = document.getElementById('flokkId').value;
-      const fodselsdato = document.getElementById('fodselsdato').value;
-      const messageContainer = document.getElementById('message');
-      
-      try {
-        const response = await fetch('/api/reinsdyr', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          },
-          body: JSON.stringify({
-            serienummer,
-            navn,
-            flokkId,
-            fodselsdato
-          })
-        });
+  if (reinsdyrForm)
+    {
+      reinsdyrForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
         
-        const data = await response.json();
+        const serienummer = document.getElementById('serienummer').value;
+        const navn = document.getElementById('navn').value;
+        const flokkId = document.getElementById('flokkId').value;
+        const fodselsdato = document.getElementById('fodselsdato').value;
+        const messageContainer = document.getElementById('message');
         
-        if (response.ok) {
-          if (messageContainer) {
-            messageContainer.innerHTML = '<p class="alert alert-success">Reinsdyr registrert!</p>';
+        try {
+          const response = await fetch('/api/reinsdyr', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: JSON.stringify({
+              serienummer,
+              navn,
+              flokkId,
+              fodselsdato
+            })
+          });
+          
+          const data = await response.json();
+          
+          if (response.ok) {
+            if (messageContainer) {
+              messageContainer.innerHTML = '<p class="alert alert-success">Reinsdyr registrert!</p>';
+            }
+            
+            reinsdyrForm.reset();
+            
+            // Reload reinsdyr
+            loadUserReinsdyr();
+          } else {
+            if (messageContainer) {
+              messageContainer.innerHTML = `<p class="alert alert-danger">${data.message || 'Registrering mislyktes'}</p>`;
+            }
           }
+        } catch (error) {
+          console.error('Error:', error);
           
-          reinsdyrForm.reset();
-          
-          // Reload reinsdyr
-          loadUserReinsdyr();
-        } else {
           if (messageContainer) {
-            messageContainer.innerHTML = `<p class="alert alert-danger">${data.message || 'Registrering mislyktes'}</p>`;
+            messageContainer.innerHTML = '<p class="alert alert-danger">Det oppstod en feil under registrering. Vennligst prøv igjen.</p>';
           }
         }
-      } catch (error) {
-        console.error('Error:', error);
-        
-        if (messageContainer) {
-          messageContainer.innerHTML = '<p class="alert alert-danger">Det oppstod en feil under registrering. Vennligst prøv igjen.</p>';
-        }
-      }
-    });
-  }
-}
-
-// Toggle collapsible sections
-function toggleCollapsible(element) {
-  const content = element.nextElementSibling;
-  const toggleIcon = element.querySelector('.toggle-icon');
-  
-  // Toggle display
-  if (content.style.display === 'block') {
-    // If it's currently displayed, hide it
-    content.style.display = 'none';
-    if (toggleIcon) toggleIcon.textContent = '+';
-  } else {
-    // If it's currently hidden, show it
-    content.style.display = 'block';
-    if (toggleIcon) toggleIcon.textContent = '-';
+      });
+    }
   }
   
-  // Log for debugging
-  console.log('Toggled element:', content);
-  console.log('Current display style:', content.style.display);
-}
-
-// Initialize on page load
-document.addEventListener('DOMContentLoaded', () => {
-  updateNavigation();
-  setupAccordion();
-  setupSearch();
-  setupForms();
-  loadUserReinsdyr();
-  loadUserFlokker();
-  loadBeiteomrader();
-  
-  // Setup logout button
-  const logoutBtn = document.getElementById('logoutBtn');
-  
-  if (logoutBtn) {
-    logoutBtn.addEventListener('click', handleLogout);
+  // Toggle collapsible sections
+  function toggleCollapsible(element) {
+    const content = element.nextElementSibling;
+    const toggleIcon = element.querySelector('.toggle-icon');
+    
+    // Toggle display
+    if (content.style.display === 'block') {
+      // If it's currently displayed, hide it
+      content.style.display = 'none';
+      if (toggleIcon) toggleIcon.textContent = '+';
+    } else {
+      // If it's currently hidden, show it
+      content.style.display = 'block';
+      if (toggleIcon) toggleIcon.textContent = '-';
+    }
+    
+    // Log for debugging
+    console.log('Toggled element:', content);
+    console.log('Current display style:', content.style.display);
   }
-});
+  
+  // Initialize on page load
+  document.addEventListener('DOMContentLoaded', () => {
+    updateNavigation();
+    setupAccordion();
+    setupSearch();
+    setupForms();
+    loadUserReinsdyr();
+    loadUserFlokker();
+    loadBeiteomrader();
+    
+    // Setup logout button
+    const logoutBtn = document.getElementById('logoutBtn');
+    
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', handleLogout);
+    }
+  });
