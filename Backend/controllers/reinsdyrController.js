@@ -16,6 +16,17 @@ const reinsdyrController = {
       // Ensure flokkIds is an array
       const flokkIdsArray = Array.isArray(flokkIds) ? flokkIds : [flokkIds];
       
+      // Log the incoming data
+      console.log('registerReinsdyr - Request Data:', {
+        serienummer,
+        navn,
+        flokkIds: flokkIdsArray,
+        hovedFlokkId,
+        fodselsdato,
+        requestEierId: req.eierId,
+        bodyEierId: eierId
+      });
+      
       // Check if hovedFlokkId is in the flokker array
       if (!flokkIdsArray.includes(hovedFlokkId)) {
         return res.status(400).json({ message: 'Hovedflokk må være en del av flokkene' });
@@ -27,27 +38,45 @@ const reinsdyrController = {
         return res.status(400).json({ message: 'Reinsdyr med dette serienummeret eksisterer allerede' });
       }
       
-      // Check if all flokker exist and belong to the same owner
-      const flokker = await Flokk.find({ _id: { $in: flokkIdsArray } });
+      // SIMPLIFIED APPROACH: Check if the user is admin or the flokker belong to the user
+      const isAdmin = req.user && req.user.isAdmin;
       
-      if (flokker.length !== flokkIdsArray.length) {
-        return res.status(404).json({ message: 'En eller flere flokker finnes ikke' });
-      }
-      
-      // Check if all flokker belong to the same owner
-      const eierIds = flokker.map(flokk => flokk.eier.toString());
-      const uniqueEierIds = [...new Set(eierIds)];
-      
-      if (uniqueEierIds.length > 1) {
-        return res.status(400).json({ message: 'Alle flokker må tilhøre samme eier' });
-      }
-      
-      // Verify permissions
-      const targetEierId = eierId || req.eierId;
-      if (targetEierId !== uniqueEierIds[0] && !req.user.isAdmin) {
-        return res.status(401).json({ 
-          message: 'Du kan bare registrere reinsdyr i dine egne flokker eller med administratorrettigheter'
-        });
+      // Skip owner checks for admin users
+      if (!isAdmin) {
+        // Get all selected flokker
+        const flokker = await Flokk.find({ _id: { $in: flokkIdsArray } });
+        
+        if (flokker.length !== flokkIdsArray.length) {
+          return res.status(404).json({ message: 'En eller flere flokker finnes ikke' });
+        }
+        
+        // Log flokker data for debugging
+        console.log('Flokker data:', flokker.map(f => ({
+          id: f._id.toString(),
+          navn: f.navn,
+          eier: f.eier.toString(),
+        })));
+        console.log('User eierId:', req.eierId);
+
+        // Check if all flokker belong to the same owner
+        const eierIds = flokker.map(flokk => flokk.eier.toString());
+        const uniqueEierIds = [...new Set(eierIds)];
+        
+        if (uniqueEierIds.length > 1) {
+          return res.status(400).json({ message: 'Alle flokker må tilhøre samme eier' });
+        }
+        
+        // Check if the user is the owner of the flokker
+        // IMPORTANT FIX: Check if ANY of the flokker belong to this user
+        const userOwnsFlokker = flokker.some(flokk => flokk.eier.toString() === req.eierId);
+        
+        console.log('User owns flokker?', userOwnsFlokker);
+        
+        if (!userOwnsFlokker) {
+          return res.status(401).json({ 
+            message: 'Du kan bare registrere reinsdyr i dine egne flokker eller med administratorrettigheter'
+          });
+        }
       }
       
       // Create new reinsdyr
@@ -63,8 +92,8 @@ const reinsdyrController = {
       
       res.status(201).json({ message: 'Reinsdyr registrert', reinsdyr: newReinsdyr });
     } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: 'Server error' });
+      console.error('Error in registerReinsdyr:', error);
+      res.status(500).json({ message: 'Server error', error: error.message });
     }
   },
   
@@ -323,7 +352,7 @@ const reinsdyrController = {
       let flokkerToCheck = flokkIdsArray || currentFlokkIds;
       
       // If user is admin, they can edit any reinsdyr
-      if (req.user.isAdmin) {
+      if (req.user && req.user.isAdmin) {
         userCanEdit = true;
       } else {
         // Get user's flokker
@@ -378,7 +407,7 @@ const reinsdyrController = {
       // Check if user owns any of the flokker
       const userOwnsAnyFlokk = flokker.some(flokk => flokk.eier.toString() === req.eierId.toString());
       
-      if (!userOwnsAnyFlokk && !req.user.isAdmin) {
+      if (!userOwnsAnyFlokk && (!req.user || !req.user.isAdmin)) {
         return res.status(401).json({ message: 'Du kan bare slette reinsdyr i dine egne flokker' });
       }
       
@@ -409,12 +438,12 @@ const reinsdyrController = {
       }
       
       // Check if user owns the flokk
-      if (flokk.eier.toString() !== req.eierId.toString() && !req.user.isAdmin) {
+      if (flokk.eier.toString() !== req.eierId.toString() && (!req.user || !req.user.isAdmin)) {
         return res.status(401).json({ message: 'Du kan bare legge til reinsdyr i dine egne flokker' });
       }
       
       // Check if the reinsdyr already has this flokk
-      if (reinsdyr.flokker.includes(flokkId)) {
+      if (reinsdyr.flokker.some(f => f.toString() === flokkId)) {
         return res.status(400).json({ message: 'Reinsdyret er allerede i denne flokken' });
       }
       
@@ -453,12 +482,13 @@ const reinsdyrController = {
       }
       
       // Check if user owns the flokk
-      if (flokk.eier.toString() !== req.eierId.toString() && !req.user.isAdmin) {
+      if (flokk.eier.toString() !== req.eierId.toString() && (!req.user || !req.user.isAdmin)) {
         return res.status(401).json({ message: 'Du kan bare fjerne reinsdyr fra dine egne flokker' });
       }
       
       // Check if the reinsdyr has this flokk
-      if (!reinsdyr.flokker.includes(flokkId)) {
+      const hasFlokk = reinsdyr.flokker.some(f => f.toString() === flokkId);
+      if (!hasFlokk) {
         return res.status(400).json({ message: 'Reinsdyret er ikke i denne flokken' });
       }
       

@@ -142,11 +142,12 @@ async function resetAndGenerate() {
           const serieNum = k + 1;
           const serienummer = `${i + 1}${seriePrefix}${serieNum.toString().padStart(3, '0')}`;
           
+          // Create reinsdyr with updated model structure
           const reinsdyr = new Reinsdyr({
             serienummer: serienummer,
             navn: `Reinsdyr ${flokk.serieinndeling}${k + 1}`,
-            flokker: [flokk._id],  // Put the flokk in the flokker array
-            hovedFlokk: flokk._id, // Add hovedFlokk field
+            flokker: [flokk._id],  // Use flokker array instead of flokk
+            hovedFlokk: flokk._id, // Set hovedFlokk field
             fodselsdato: new Date(2018 + Math.floor(Math.random() * 5), Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1)
           });
           await reinsdyr.save();

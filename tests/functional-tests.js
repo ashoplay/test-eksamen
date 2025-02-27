@@ -170,13 +170,14 @@ async function testCreateReinsdyr() {
   console.log('Testing reinsdyr creation...');
   
   try {
+    // Updated to use flokkIds array and hovedFlokkId instead of flokkId
     const data = await fetchWithAuth('/reinsdyr', {
       method: 'POST',
       body: JSON.stringify({
         serienummer: 'TEST-001',
         navn: 'Test Reinsdyr',
-        flokkIds: [testFlokkId1],
-        hovedFlokkId: testFlokkId1,
+        flokkIds: [testFlokkId1],  // Array of flokk IDs
+        hovedFlokkId: testFlokkId1, // The main flokk ID
         fodselsdato: '2020-01-01'
       })
     });
@@ -449,8 +450,8 @@ async function createSampleData() {
       body: JSON.stringify({
         serienummer: `TEST-${i.toString().padStart(3, '0')}`,
         navn: `Test Reinsdyr ${i}`,
-        flokkIds: [i <= 10 ? testFlokkId1 : testFlokkId2],
-        hovedFlokkId: i <= 10 ? testFlokkId1 : testFlokkId2,
+        flokkIds: [i <= 10 ? testFlokkId1 : testFlokkId2], // Using flokkIds array
+        hovedFlokkId: i <= 10 ? testFlokkId1 : testFlokkId2, // Using hovedFlokkId
         fodselsdato: '2020-01-01'
       })
     });

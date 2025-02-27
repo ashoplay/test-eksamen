@@ -27,14 +27,27 @@ const transactionController = {
       }
   
       // Find the reinsdyr
-      const reinsdyr = await Reinsdyr.findById(reinsdyrId).populate('flokk');
+      const reinsdyr = await Reinsdyr.findById(reinsdyrId)
+        .populate('flokker')
+        .populate('hovedFlokk');
+      
       if (!reinsdyr) {
         return res.status(404).json({ message: 'Reinsdyret finnes ikke' });
       }
 
-      // Check reinsdyr ownership
-      const flokk = await Flokk.findById(reinsdyr.flokk);
-      if (!flokk || flokk.eier.toString() !== req.eierId.toString()) {
+      // Check reinsdyr ownership - updated for new model structure
+      // Get all flokkIds from the reinsdyr
+      const flokkIds = reinsdyr.flokker.map(flokk => 
+        typeof flokk === 'object' ? flokk._id.toString() : flokk.toString()
+      );
+      
+      // Find all flokker that belong to these IDs
+      const flokker = await Flokk.find({ _id: { $in: flokkIds } });
+      
+      // Check if any of these flokker belong to the current user
+      const ownsAnyFlokk = flokker.some(flokk => flokk.eier.toString() === req.eierId.toString());
+      
+      if (!ownsAnyFlokk) {
         return res.status(401).json({ message: 'Du eier ikke dette reinsdyret' });
       }
   
@@ -197,13 +210,24 @@ const transactionController = {
       }
 
       // Find the reinsdyr and confirm it still belongs to the sender
-      const reinsdyr = await Reinsdyr.findById(transaction.reinsdyr._id).populate('flokk');
+      const reinsdyr = await Reinsdyr.findById(transaction.reinsdyr._id);
       if (!reinsdyr) {
         return res.status(404).json({ message: 'Reinsdyret finnes ikke lenger' });
       }
 
-      const flokk = await Flokk.findById(reinsdyr.flokk);
-      if (!flokk || flokk.eier.toString() !== req.eierId.toString()) {
+      // Check reinsdyr ownership - updated for new model structure
+      // Get all flokkIds from the reinsdyr
+      const flokkIds = reinsdyr.flokker.map(flokk => 
+        typeof flokk === 'object' ? flokk._id.toString() : flokk.toString()
+      );
+      
+      // Find all flokker that belong to these IDs
+      const flokker = await Flokk.find({ _id: { $in: flokkIds } });
+      
+      // Check if any of these flokker belong to the current user
+      const ownsAnyFlokk = flokker.some(flokk => flokk.eier.toString() === req.eierId.toString());
+      
+      if (!ownsAnyFlokk) {
         return res.status(401).json({ message: 'Du eier ikke lenger dette reinsdyret' });
       }
 
@@ -226,17 +250,18 @@ const transactionController = {
           const newFlokk = new Flokk({
             navn: 'Standard Flokk',
             eier: transaction.toEier._id,
-            serieinndeling: flokk.serieinndeling,
+            serieinndeling: flokker.length > 0 ? flokker[0].serieinndeling : 'A',
             buemerke_navn: `${transaction.toEier.navn}s Buemerke`,
-            beiteomrade: flokk.beiteomrade // Use the same beiteomrade for now
+            beiteomrade: flokker.length > 0 ? flokker[0].beiteomrade : null // Use the same beiteomrade for now
           });
           await newFlokk.save();
           targetFlokkId = newFlokk._id;
         }
       }
 
-      // Transfer the reinsdyr
-      reinsdyr.flokk = targetFlokkId;
+      // Transfer the reinsdyr - updated for new model structure
+      reinsdyr.flokker = [targetFlokkId]; // Replace all flokker with just the target flokk
+      reinsdyr.hovedFlokk = targetFlokkId; // Set the target flokk as the hovedFlokk
       await reinsdyr.save();
 
       // Update transaction status
@@ -300,14 +325,17 @@ const transactionController = {
       }
 
       // Find the reinsdyr
-      const reinsdyr = await Reinsdyr.findById(reinsdyrId).populate('flokk');
+      const reinsdyr = await Reinsdyr.findById(reinsdyrId);
       if (!reinsdyr) {
         return res.status(404).json({ message: 'Reinsdyret finnes ikke' });
       }
 
-      // Verify current user owns the reinsdyr
-      const flokk = await Flokk.findById(reinsdyr.flokk);
-      if (!flokk || flokk.eier.toString() !== req.eierId.toString()) {
+      // Verify current user owns the reinsdyr by checking ownership of any flokk
+      const flokkIds = reinsdyr.flokker.map(f => typeof f === 'object' ? f._id.toString() : f.toString());
+      const flokker = await Flokk.find({ _id: { $in: flokkIds } });
+      const ownsAnyFlokk = flokker.some(flokk => flokk.eier.toString() === req.eierId.toString());
+
+      if (!ownsAnyFlokk) {
         return res.status(401).json({ message: 'Du kan bare overføre dine egne reinsdyr' });
       }
 
@@ -321,13 +349,20 @@ const transactionController = {
         return res.status(401).json({ message: 'Du kan bare overføre til dine egne flokker' });
       }
 
-      // Cannot transfer to the same flokk
-      if (reinsdyr.flokk._id.toString() === targetFlokkId) {
-        return res.status(400).json({ message: 'Reinsdyret er allerede i denne flokken' });
+      // Check if the reinsdyr is already in this flokk and it's the only one
+      if (flokkIds.length === 1 && flokkIds[0] === targetFlokkId) {
+        return res.status(400).json({ message: 'Reinsdyret er allerede i denne flokken og har ingen andre flokker' });
       }
 
-      // Transfer the reinsdyr
-      reinsdyr.flokk = targetFlokkId;
+      // Update reinsdyr's flokker and hovedFlokk
+      // Add to flokker array if not already there
+      if (!flokkIds.includes(targetFlokkId)) {
+        reinsdyr.flokker.push(targetFlokkId);
+      }
+      
+      // Set as hovedFlokk
+      reinsdyr.hovedFlokk = targetFlokkId;
+      
       await reinsdyr.save();
 
       res.json({ 
